@@ -13,14 +13,14 @@ class AAE(object):
         self.encoder = Encoder(sess=sess, encoder=encoder, z_dim=z_dim)
         self.z_dim = z_dim
         self.decoder = Decoder(sess=sess, decoder=decoder, z_dim=z_dim)
-        self.disor = Discriminator(sess=sess, z_dim=z_dim, layers=disor)
+        self.disor = Discriminator(z_dim=z_dim, layers=disor)
         self.sampler = Sampler(type=sampler, dim=z_dim)
         self.name = name
         self.sess = sess
 
         self.batch_size = batch_size
         self.learn_rate = learn_rate
-        # self.sess.run(tf.variables_initializer(self.vars))
+        #
 
     def init_model(self):
         # initialize variables
@@ -34,6 +34,8 @@ class AAE(object):
         self.loss_encoder_decoder, self.opt_encoder_decoder = self.optimizer_encoder_decoder()
         self.loss_discriminator, self.opt_discriminator = self.optimizer_discriminator()
         self.loss_encoder, self.opt_encoder = self.optimizer_encoder()
+        # initialize variable
+        self.sess.run(tf.initialize_all_variables())
 
     def optimizer_encoder_decoder(self):
         self.x_encoder_decoder = tf.placeholder(tf.float32, [self.batch_size, self.encoder[0]])
@@ -82,3 +84,7 @@ class AAE(object):
         _, loss = self.sess.run([self.opt_encoder, self.loss_encoder],
                                 {self.x_encoder:input})
         return loss
+
+    def save(self, path):
+        saver = self.sess.train.Saver(self.vars)
+        saver.save(self.sess, path)
