@@ -4,43 +4,19 @@ import math
 import matplotlib.pyplot as plt
 
 class Sampler(object):
-    def __init__(self, class_num):
-        # 0 -- class_num - 1: classification index
-        # class_num: for unlabeled index
-        self.class_num = class_num
+    def __init__(self, type='Gaussian', dim=2):
+        self.type = type
+        self.dim = dim
 
-        self.x_variance = 0.5
-        self.y_variance = 0.05
-        self.radial = 2.0
-
-    def _get_radian(self, class_index):
-        return 2 * np.pi * float(class_index)/float(self.class_num)
-
-    def _rotate(self, x, y, radian):
-        mod_x = x * math.cos(radian) - y * math.sin(radian)
-        mod_y = x * math.sin(radian) + y * math.cos(radian)
-        return mod_x, mod_y
-
-    def __call__(self, class_indexes):
-        ret = []
-        for class_index in class_indexes:
-            x = np.random.normal(0.0, self.x_variance) + self.radial
-            y = np.random.normal(0.0, self.y_variance)
-            rad = self._get_radian(class_index)
-            x, y = self._rotate(x, y, rad)
-            ret.append([x, y])
-
-        return np.asarray(ret)
-
+    def __call__(self, batch_size, e_mean=0.0, e_std=10.0):
+        mean = np.zeros([batch_size, self.dim])
+        std = np.ones([batch_size, self.dim])
+        epsilon = np.random.normal(loc=e_mean, scale=e_std, size=[batch_size, self.dim])
+        return mean + epsilon * std
 
 if __name__ == '__main__':
-    s = Sampler(10)
-    tmp = [[0, 0, 0, 1, 0, 0],
-           [0, 0, 0, 1, 0, 0],
-           [0, 0, 0, 1, 0, 0],
-           [0, 0, 0, 0, 0, 1]]
-    tmptmp = np.argmax(tmp, axis = 1)
-    p = s(tmptmp)
+    s = Sampler()
+    p = s(1000)
     x = p[:,0]
     y = p[:,1]
     plt.scatter(x, y)
