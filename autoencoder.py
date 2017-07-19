@@ -10,9 +10,8 @@ class Autoencoder(object):
         self.sess = sess
 
         self.init_vars()
-        self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
-                                      scope=self.name)
-        self.sess.run(tf.variables_initializer(self.vars))
+        self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+        self.sess.run(tf.global_variables_initializer(self.vars))
         self.saver = tf.train.Saver(self.vars)
 
     def init_vars(self):

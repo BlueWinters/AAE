@@ -1,5 +1,7 @@
 
 import tensorflow as tf
+import os as os
+
 from encoder import Encoder
 from decoder import Decoder
 from discriminator import Discriminator
@@ -20,7 +22,8 @@ class AAE(object):
 
         self.batch_size = batch_size
         self.learn_rate = learn_rate
-        #
+        # initialize model
+        self.init_model()
 
     def init_model(self):
         # initialize variables
@@ -89,13 +92,26 @@ class AAE(object):
                                 {self.x_encoder:input})
         return loss
 
-    def save(self, path):
-        saver = self.sess.train.Saver(self.vars)
-        saver.save(self.sess, path)
+    def save(self, name):
+        save_dir = 'ckpt/'
+        if not os.path.isdir(save_dir):
+            os.makedirs(save_dir)
+        saver = tf.train.Saver(self.vars)
+        saver.save(self.sess, name)
 
     def restore(self, path):
-        saver = self.sess.train.Saver(self.vars)
+        saver = tf.train.Saver(self.vars)
         saver.restore(self.sess, path)
+
+    def visual(self, input, labels):
+        f = self.sess.run([self.encoder.feedforward(input)], {self.x_encoder:input})
+        x, y = [], []
+        for n in range(10):
+            pass
+
+
+
+
 
 if __name__ == '__main__':
     encoder_layer = [28*28, 400, 100]
