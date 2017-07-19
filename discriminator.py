@@ -6,6 +6,7 @@ class Discriminator(object):
         self.z_dim = z_dim
         self.layers = layers
         self.name = name
+        self.vars = []
 
     def init_model(self):
         in_list = [self.z_dim]
@@ -15,14 +16,16 @@ class Discriminator(object):
             for n, (in_dim, out_dim) in enumerate(zip(in_list, out_list)):
                 self._set_vars(in_dim=in_dim, out_dim=out_dim, name="layer_"+str(n))
 
-        self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
-                                      scope=self.name)
+        vars = tf.trainable_variables()
+        for one in vars:
+            if self.name in one.name:
+                self.vars.append(one)
 
     def _set_vars(self, in_dim, out_dim, name, stddev=0.1):
         with tf.variable_scope(name) as vs:
-            k = tf.get_variable('W', [out_dim, in_dim],
+            k = tf.get_variable('W', [in_dim, out_dim],
                                 initializer=tf.truncated_normal_initializer(stddev=stddev))
-            b = tf.get_variable('b', [out_dim, 1],
+            b = tf.get_variable('b', [out_dim],
                                 initializer=tf.constant_initializer(0))
         return k, b
 

@@ -3,21 +3,27 @@ import tensorflow as tf
 
 class Encoder(object):
     def __init__(self, sess, encoder, z_dim, name='Encoder'):
-        self.encoder = encoder
+        self.layer_set = encoder
         self.z_dim = z_dim
         self.name = name
         self.sess = sess
+        self.vars = []
+        
+    def __call__(self, n_layer):
+        return self.layer_set[n_layer]
 
     def init_model(self):
-        in_list = self.encoder[:]
-        out_list = self.encoder[1:]
+        in_list = self.layer_set[:]
+        out_list = self.layer_set[1:]
         out_list.append(self.z_dim)
         with tf.variable_scope(self.name) as vs:
             for n, (in_dim, out_dim) in enumerate(zip(in_list, out_list)):
                 self._set_vars(in_dim=in_dim, out_dim=out_dim, name="layer_"+str(n))
 
-        self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
-                                      scope=self.name)
+        vars = tf.trainable_variables()
+        for one in vars:
+            if self.name in one.name:
+                self.vars.append(one)
 
     def _set_vars(self, in_dim, out_dim, name, stddev=0.1):
         with tf.variable_scope(name) as vs:
@@ -31,8 +37,8 @@ class Encoder(object):
         h = []
         h.append(input)
 
-        in_list = self.encoder[:]
-        out_list = self.encoder[1:]
+        in_list = self.layer_set[:]
+        out_list = self.layer_set[1:]
         out_list.append(self.z_dim)
         with tf.variable_scope(self.name, reuse=True) as vs:
             for n, (in_dim, out_dim) in enumerate(zip(in_list, out_list)):
