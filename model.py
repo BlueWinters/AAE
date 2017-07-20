@@ -107,16 +107,16 @@ class AAE(object):
 
     def visual(self, input, labels):
         with tf.variable_scope(self.name, reuse=True) as vs:
-            f = self.sess.run([self.encoder.feedforward(input)])
+            f = self.sess.run(self.encoder.feedforward(input))
         point = []
         color_list = ['b','r','g','k','m','c','w','y']
-        for n in range(10):
+        for n in range(8):
             index = np.where(labels[:,n] == 1)[0]
-            point = f[index.tolist(),:].tolist()
+            point = f[index.tolist(),:]
             x = point[:,0]
             y = point[:,1]
             plt.scatter(x, y, color=color_list)
-
+            plt.clf()
 
 
 

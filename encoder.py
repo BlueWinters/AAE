@@ -51,10 +51,3 @@ class Encoder(object):
             b = tf.get_variable('b')
             a = tf.matmul(input, W) + b
         return tf.nn.sigmoid(a)
-
-    def save(self, path):
-        saver = tf.train.Saver(self.vars)
-        saver.save(self.sess, path)
-
-    def restore(self, path):
-        self.saver.save(self.sess, path)
