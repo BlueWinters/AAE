@@ -1,6 +1,8 @@
 
 import tensorflow as tf
+import numpy as np
 import os as os
+import matplotlib.pyplot as plt
 
 from encoder import Encoder
 from decoder import Decoder
@@ -104,11 +106,16 @@ class AAE(object):
         saver.restore(self.sess, path)
 
     def visual(self, input, labels):
-        f = self.sess.run([self.encoder.feedforward(input)], {self.x_encoder:input})
-        x, y = [], []
+        with tf.variable_scope(self.name, reuse=True) as vs:
+            f = self.sess.run([self.encoder.feedforward(input)])
+        point = []
+        color_list = ['b','r','g','k','m','c','w','y']
         for n in range(10):
-            pass
-
+            index = np.where(labels[:,n] == 1)[0]
+            point = f[index.tolist(),:].tolist()
+            x = point[:,0]
+            y = point[:,1]
+            plt.scatter(x, y, color=color_list)
 
 
 

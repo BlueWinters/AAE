@@ -37,6 +37,7 @@ for epoch in range(num_epochs):
     for i in range(total_batch):
         batch_x, batch_y = mnist.train.next_batch(batch_size)
         batch_x = batch_x.reshape(shape)
+        aae.visual(batch_x, batch_y)
         for epoch_en_de in range(num_epochs_en_de):
             loss_encoder_decoder += aae.train_encoder_decoder(input=batch_x)/num_epochs_en_de
         for epoch_dis in range(num_epochs_dis):

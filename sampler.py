@@ -16,15 +16,16 @@ class Sampler(object):
 
 
 def plotPoint():
-    np.random.seed(2017)
+    # np.random.seed(2017)
     sampler = Sampler()
-    p = sampler(100)
-    x1 = p[0:49,0]
-    y1 = p[0:49,1]
-    x2 = p[50:-1,0]
-    y2 = p[50:-1,1]
-    plt.scatter(x1, y1, color='blue')
-    plt.scatter(x2, y2, color='red')
+    p = sampler(1000)
+    c = ['b','r','g','k','m','c','w','y']
+    for n in range(5):
+        x = p[100*n:100*(n+1),0]
+        y = p[100*n:100*(n+1),1]
+        sx = x.shape
+        sy = y.shape
+        plt.scatter(x, y, color=c[n])
     plt.show()
 
 
@@ -32,9 +33,17 @@ def plotPoint():
 if __name__ == '__main__':
     # s = Sampler()
     # p = s(1000)
-    # x = p[:,0]
-    # y = p[:,1]
-    # plt.scatter(x, y)
+    # c = ['b','r','g','k','m','c','w','y']
+    #
+    # x1 = p[0:100,0]
+    # y1 = p[0:100,1]
+    # plt.scatter(x1, y1, color=c[0])
+    #
+    # x2 = p[100:200,0]
+    # y2 = p[100:200,1]
+    # plt.scatter(x2, y2, color=c[1])
+    #
     # plt.show()
-
+    #
     plotPoint()
+
