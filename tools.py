@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def get_10color_list(self):
+def get_10color_list():
     color = [[0.0, 0.0, 0.0], [0.0, 0.0, 1.0],
              [0.0, 0.0, 1.0], [0.0, 1.0, 1.0],
              [1.0, 0.0, 0.0], [1.0, 0.0, 1.0],
@@ -10,11 +10,11 @@ def get_10color_list(self):
              [0.5, 1.0, 1.0], [1.0, 0.5, 1.0]] # last three are chosen randomly
     return color
 
-def get_8color_list(self):
+def get_8color_list():
     color = ['b','r','g','k','m','c','w','y']
     return color
 
-def mix_10_2D_guassian(self, n_samples, mean=0.0, std=1.0):
+def mix_10_2D_guassian(n_samples, mean=0.0, std=1.0):
     samples = np.zeros(shape=[n_samples, 2])
     for n in range(10):
         mean_list = np.zeros([n_samples, 2])

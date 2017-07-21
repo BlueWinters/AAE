@@ -37,7 +37,6 @@ for epoch in range(num_epochs):
     for i in range(total_batch):
         batch_x, batch_y = mnist.train.next_batch(batch_size)
         batch_x = batch_x.reshape(shape)
-        aae.visual(batch_x, batch_y)
         for epoch_en_de in range(num_epochs_en_de):
             loss_encoder_decoder += aae.train_encoder_decoder(input=batch_x)/num_epochs_en_de
         for epoch_dis in range(num_epochs_dis):
@@ -49,6 +48,9 @@ for epoch in range(num_epochs):
     print("Epoch {:3d}/{:d}, loss_en_de {:9f}, loss_dis {:9f}, loss_encoder {:9f}"
           .format(num_epochs, epoch+1, loss_encoder_decoder, loss_discriminator, loss_encoder))
 print("Training time : {}".format(time.time() - start_time))
+
+#
+
 
 # save model
 aae.save('model.ckpt')

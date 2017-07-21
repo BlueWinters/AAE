@@ -118,6 +118,7 @@ class AAE(object):
             x = point[:,0]
             y = point[:,1]
             plt.scatter(x, y, color=color_list[n], edgecolors='face')
+        plt.show()
 
 
 if __name__ == '__main__':
