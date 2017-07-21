@@ -8,6 +8,7 @@ from encoder import Encoder
 from decoder import Decoder
 from discriminator import Discriminator
 from sampler import Sampler
+from tools import get_10color_list
 
 
 class AAE(object):
@@ -109,15 +110,14 @@ class AAE(object):
         with tf.variable_scope(self.name, reuse=True) as vs:
             f = self.sess.run(self.encoder.feedforward(input))
         point = []
-        color_list = ['b','r','g','k','m','c','w','y']
+        plt.clf()
+        color_list = get_10color_list()
         for n in range(8):
             index = np.where(labels[:,n] == 1)[0]
             point = f[index.tolist(),:]
             x = point[:,0]
             y = point[:,1]
-            plt.scatter(x, y, color=color_list)
-            plt.clf()
-
+            plt.scatter(x, y, color=color_list[n], edgecolors='face')
 
 
 if __name__ == '__main__':
