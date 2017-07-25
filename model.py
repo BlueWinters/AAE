@@ -100,7 +100,7 @@ class AAE(object):
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
         saver = tf.train.Saver(self.vars)
-        saver.save(self.sess, name)
+        saver.save(self.sess, save_dir+name)
 
     def restore(self, path):
         saver = tf.train.Saver(self.vars)
