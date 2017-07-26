@@ -37,7 +37,7 @@ class AAE(object):
         self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
         # initialize optimizers
         self.loss_encoder_decoder, self.opt_encoder_decoder = self.optimizer_encoder_decoder()
-        self.loss_discriminator, self.opt_discriminator = self.optimizer_discriminator()
+        self.loss_disor_faker, self.loss_disor_real, self.opt_disor = self.optimizer_discriminator()
         self.loss_encoder, self.opt_encoder = self.optimizer_encoder()
         # initialize variable
         self.sess.run(tf.global_variables_initializer())
@@ -73,14 +73,14 @@ class AAE(object):
         loss = loss_faker + loss_real
         # name conflict, so rename the optimizer as Adam_dis
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate, name='Adam_dis')
-        return loss, optimizer.minimize(loss, var_list=self.disor.vars)
+        return loss_faker, loss_real, optimizer.minimize(loss, var_list=self.disor.vars)
 
     def optimizer_encoder(self):
         self.x_encoder = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)])
         with tf.variable_scope(self.name, reuse=True) as vs:
             f = self.encoder.feedforward(self.x_encoder)
             pred = self.disor.predict(f)
-        loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logitis=pred,
+        loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred,
                                                                       labels=tf.ones_like(pred)))
         # name conflict, so rename the optimizer as Adam_en
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate, name='Adam_en')
@@ -93,9 +93,11 @@ class AAE(object):
 
     def train_discriminator(self, input, labels=None):
         z_prior = self.sampler(self.batch_size)
-        _, loss = self.sess.run([self.opt_discriminator, self.loss_discriminator],
-                                {self.x_discriminator:input, self.z_discriminator:z_prior})
-        return loss
+        _, loss_faker, loss_real = self.sess.run(
+            [self.opt_disor, self.loss_disor_faker, self.loss_disor_real],
+            {self.x_discriminator:input, self.z_discriminator:z_prior})
+        return loss_faker, loss_real
+        # return {'faker':loss_faker, 'real':loss_real}
 
     def train_encoder(self, input, labels=None):
         _, loss = self.sess.run([self.opt_encoder, self.loss_encoder],
@@ -119,13 +121,18 @@ class AAE(object):
         point = []
         plt.clf()
         color_list = get_10color_list()
-        for n in range(8):
+        for n in range(10):
             index = np.where(labels[:,n] == 1)[0]
             point = f[index.tolist(),:]
             x = point[:,0]
             y = point[:,1]
             plt.scatter(x, y, color=color_list[n], edgecolors='face')
         plt.show()
+
+    def output(self, z):
+        with tf.variable_scope(self.name, reuse=True) as vs:
+            image = self.sess.run(self.decoder.feedforward(z))
+        return image
 
 
 if __name__ == '__main__':
