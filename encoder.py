@@ -50,4 +50,4 @@ class Encoder(object):
             W = tf.get_variable('W')
             b = tf.get_variable('b')
             a = tf.matmul(input, W) + b
-        return tf.nn.sigmoid(a)
+        return tf.nn.relu(a)

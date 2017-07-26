@@ -50,4 +50,5 @@ class Decoder(object):
             W = tf.get_variable('W')
             b = tf.get_variable('b')
             a = tf.matmul(input, W) + b
-        return tf.nn.sigmoid(a)
+            tf.layers.dense()
+        return tf.nn.relu(a)
