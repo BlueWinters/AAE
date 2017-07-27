@@ -43,24 +43,28 @@ class Decoder(object):
         return gamma, beta
 
     def feedforward(self, input):
-        h = []
-        h.append(input)
+        h = input
 
         with tf.variable_scope(self.name, reuse=True) as vs:
-            for n in range(len(self.layers)):
-                h.append(self._decoder_onestep(h[-1], name="layer_"+str(n)))
-                h.append(self._batch_normal(h[-1], name="layer_"+str(n)))
-        return h[-1]
+            for n in range(len(self.layer_set)):
+                ret = self._calc_matmult(h, name="layer_"+str(n))
+                h = self._calc_active(ret, name="layer_"+str(n))
+                h = self._calc_bn(h, name="layer_"+str(n))
+        return h
 
-    def _decoder_onestep(self, input, name):
+    def _calc_matmult(self, input, name):
         with tf.variable_scope(name, reuse=True) as vs:
             W = tf.get_variable('W')
             b = tf.get_variable('b')
             a = tf.matmul(input, W) + b
-        return tf.nn.relu(a)
+        return a
 
-    def _batch_normal(self, input, name):
-        with tf.variable(name, reuse=True) as vs:
+    def _calc_active(self, input, name):
+        with tf.variable_scope(name, reuse=True) as vs:
+            return tf.nn.relu(input)
+
+    def _calc_bn(self, input, name):
+        with tf.variable_scope(name, reuse=True) as vs:
             gamma = tf.get_variable('gamma')
             beta = tf.get_variable('beta')
             mean, var = tf.nn.moments(input, [0])

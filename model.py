@@ -63,16 +63,19 @@ class AAE(object):
             pred_real = self.disor.predict(self.z_discriminator)
 
         # loss type 1
-        # loss_faker = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred_faker,
-        #                                                                     labels=tf.zeros_like(pred_faker)))
-        # loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred_real,
-        #                                                                    labels=tf.ones_like(pred_real)))
+        loss_faker = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred_faker,
+                                                                            labels=tf.zeros_like(pred_faker)))
+        loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred_real,
+                                                                           labels=tf.ones_like(pred_real)))
 
         # loss type 2
-        TINY = 1e-8
-        loss_faker = - tf.reduce_mean(tf.log(pred_faker + TINY))
-        loss_real = - tf.reduce_mean(tf.log(pred_real + TINY) + tf.log(1. - pred_faker + TINY))
-        loss = loss_faker + loss_real
+        # TINY = 1e-8
+        # loss_faker = - tf.reduce_mean(tf.log(pred_faker + TINY))
+        # loss_real = - tf.reduce_mean(tf.log(pred_real + TINY) + tf.log(1. - pred_faker + TINY))
+
+        # control dependency
+        with tf.control_dependencies([loss_faker, loss_real]):
+            loss = loss_faker + loss_real
 
         # name conflict, so rename the optimizer as Adam_dis
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate, name='Adam_dis')
@@ -85,6 +88,9 @@ class AAE(object):
             pred = self.disor.predict(f)
         loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred,
                                                                       labels=tf.ones_like(pred)))
+        # TINY = 1e-8
+        # loss = - tf.reduce_mean(tf.log(pred + TINY))
+
         # name conflict, so rename the optimizer as Adam_en
         optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate, name='Adam_en')
         return loss, optimizer.minimize(loss, var_list=self.encoder.vars)
@@ -150,4 +156,3 @@ if __name__ == '__main__':
 
     sess = tf.Session()
     aae = AAE(sess, encoder_layer, z_dim, decoder_layer, disor_layer)
-    aae.init_model()

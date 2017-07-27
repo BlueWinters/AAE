@@ -6,11 +6,11 @@ from model import AAE
 from tensorflow.examples.tutorials.mnist import input_data
 
 
-encoder_layer = [28*28, 400, 100]
+encoder_layer = [28*28, 1000, 400, 100]
 z_dim = 2
-decoder_layer = [100, 400, 28*28]
-disor_layer = [2, 16, 1]
-num_epochs = 300
+decoder_layer = [100, 400, 1000, 28*28]
+disor_layer = [2, 32, 16, 1]
+num_epochs = 100
 num_epochs_en_de = 1
 num_epochs_dis = 1
 num_epochs_en = 1
@@ -37,12 +37,12 @@ for epoch in range(num_epochs):
     for i in range(total_batch):
         batch_x, batch_y = mnist.train.next_batch(batch_size)
         batch_x = batch_x.reshape(shape)
+        for epoch_en_de in range(num_epochs_en_de):
+            loss_encoder_decoder += aae.train_encoder_decoder(input=batch_x)/float(num_epochs_en_de*total_batch)
         for epoch_dis in range(num_epochs_dis):
             tmp_faker, tmp_real = aae.train_discriminator(input=batch_x)
             loss_disor_faker += tmp_faker/float(num_epochs_dis*total_batch)
             loss_disor_real += tmp_real/float(num_epochs_dis*total_batch)
-        for epoch_en_de in range(num_epochs_en_de):
-            loss_encoder_decoder += aae.train_encoder_decoder(input=batch_x)/float(num_epochs_en_de*total_batch)
         for epoch_en in range(num_epochs_en):
             loss_encoder += aae.train_encoder(input=batch_x)/float(num_epochs_en*total_batch)
     print("Epoch {:3d}/{:d}, loss_en_de {:9f}, loss_dis_faker {:9f}, loss_dis_real {:9f}, loss_encoder {:9f}"
