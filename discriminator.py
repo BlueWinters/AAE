@@ -33,11 +33,8 @@ class Discriminator(object):
         h = []
         h.append(input)
 
-        in_list = [self.z_dim]
-        in_list.extend(self.layers[:-1])
-        out_list = self.layers[:]
         with tf.variable_scope(self.name, reuse=True) as vs:
-            for n, (in_dim, out_dim) in enumerate(zip(in_list, out_list)):
+            for n in range(len(self.layers)):
                 h.append(self._feedforward_onestep(h[-1], name="layer_"+str(n)))
         return h[-1]
 
@@ -46,4 +43,4 @@ class Discriminator(object):
             W = tf.get_variable('W')
             b = tf.get_variable('b')
             a = tf.matmul(input, W) + b
-        return tf.nn.sigmoid(a)
+        return tf.nn.relu(a)
