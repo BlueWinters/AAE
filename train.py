@@ -18,6 +18,7 @@ vis_epochs = 5
 batch_size = 100
 learn_rate = 1e-3
 shape = [batch_size, 28*28]
+summary_path = './summary'
 
 
 sess = tf.Session()
@@ -38,7 +39,8 @@ for epoch in range(num_epochs):
         batch_x, batch_y = mnist.train.next_batch(batch_size)
         batch_x = batch_x.reshape(shape)
         for epoch_en_de in range(num_epochs_en_de):
-            loss_encoder_decoder += aae.train_encoder_decoder(input=batch_x)/float(num_epochs_en_de*total_batch)
+            tmp_en_de = aae.train_encoder_decoder(input=batch_x)
+            loss_encoder_decoder += tmp_en_de/float(num_epochs_en_de*total_batch)
         for epoch_dis in range(num_epochs_dis):
             tmp_faker, tmp_real = aae.train_discriminator(input=batch_x)
             loss_disor_faker += tmp_faker/float(num_epochs_dis*total_batch)
