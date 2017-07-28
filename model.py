@@ -38,6 +38,11 @@ class AAE(object):
         self.sess.close()
 
     def init_model(self):
+        # initialize placeholder
+        self.x_input = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)], 'x_input')
+        # self.z_faker = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)], 'z_faker')
+        self.z_real = tf.placeholder(tf.float32, [self.batch_size, self.z_dim], 'z_real')
+
         # initialize variables
         with tf.variable_scope(self.name) as vs:
             self.encoder.init_model()
@@ -62,11 +67,10 @@ class AAE(object):
         # initialize data
 
     def optimizer_encoder_decoder(self):
-        self.x_encoder_decoder = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)])
         with tf.variable_scope(self.name, reuse=True) as vs:
-            f = self.encoder.feedforward(self.x_encoder_decoder)
-            y = self.decoder.feedforward(f)
-        loss = tf.reduce_mean(tf.reduce_sum(tf.square(y - self.x_encoder_decoder), [1]))
+            f = self.encoder.feedforward(self.x_input)
+            output = self.decoder.feedforward(f)
+        loss = tf.reduce_mean(tf.reduce_sum(tf.square(output - self.x_input), [1]))
 
         # summary
         with tf.name_scope('encoder_decoder') as vs:
@@ -81,12 +85,10 @@ class AAE(object):
         return loss, optimizer.minimize(loss, var_list=vars)
 
     def optimizer_discriminator(self):
-        self.x_discriminator = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)])
-        self.z_discriminator = tf.placeholder(tf.float32, [self.batch_size, self.z_dim])
         with tf.variable_scope(self.name, reuse=True) as vs:
-            z_faker = self.encoder.feedforward(self.x_discriminator)
+            z_faker = self.encoder.feedforward(self.x_input)
             pred_faker = self.disor.predict(z_faker)
-            pred_real = self.disor.predict(self.z_discriminator)
+            pred_real = self.disor.predict(self.z_real)
 
         # loss type 1
         # loss_faker = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred_faker,
@@ -113,9 +115,8 @@ class AAE(object):
         return loss_faker, loss_real, optimizer.minimize(loss, var_list=self.disor.vars)
 
     def optimizer_encoder(self):
-        self.x_encoder = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)])
         with tf.variable_scope(self.name, reuse=True) as vs:
-            f = self.encoder.feedforward(self.x_encoder)
+            f = self.encoder.feedforward(self.x_input)
             pred = self.disor.predict(f)
         # loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred,
         #                                                               labels=tf.ones_like(pred)))
@@ -129,24 +130,33 @@ class AAE(object):
         return loss, optimizer.minimize(loss, var_list=self.encoder.vars)
 
     def train_encoder_decoder(self, input, labels=None):
-        _, loss, summary = self.sess.run([self.opt_encoder_decoder, self.loss_encoder_decoder,
-                                          self.merged],
-                                         {self.x_encoder_decoder:input})
-        self.summary_writer.add_summary(summary)
+        # _, loss, summary = self.sess.run(
+        #     [self.opt_encoder_decoder, self.loss_encoder_decoder, self.merged],
+        #     {self.x_input:input})
+        # self.summary_writer.add_summary(summary)
+        _, loss = self.sess.run(
+            [self.opt_encoder_decoder, self.loss_encoder_decoder],
+            {self.x_input:input})
         return loss
 
     def train_discriminator(self, input, labels=None):
+        # z_prior = self.sampler(self.batch_size)
+        # _, loss_faker, loss_real, summary = self.sess.run(
+        #     [self.opt_disor, self.loss_disor_faker, self.loss_disor_real, self.merged],
+        #     {self.x_discriminator:input, self.z_discriminator:z_prior})
+        # self.summary_writer.add_summary(summary)
         z_prior = self.sampler(self.batch_size)
-        _, loss_faker, loss_real, summary = self.sess.run(
-            [self.opt_disor, self.loss_disor_faker, self.loss_disor_real, self.merged],
-            {self.x_discriminator:input, self.z_discriminator:z_prior})
-        self.summary_writer.add_summary(summary)
+        _, loss_faker, loss_real = self.sess.run(
+            [self.opt_disor, self.loss_disor_faker, self.loss_disor_real],
+            {self.x_input:input, self.z_real:z_prior})
         return loss_faker, loss_real
 
     def train_encoder(self, input, labels=None):
-        _, loss, summary = self.sess.run([self.opt_encoder, self.loss_encoder, self.merged],
-                                         {self.x_encoder:input})
-        self.summary_writer.add_summary(summary)
+        # _, loss, summary = self.sess.run([self.opt_encoder, self.loss_encoder, self.merged],
+        #                                  {self.x_encoder:input})
+        # self.summary_writer.add_summary(summary)
+        _, loss = self.sess.run([self.opt_encoder, self.loss_encoder],
+                                         {self.x_input:input})
         return loss
 
     def dist_to_image(self):

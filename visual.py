@@ -48,5 +48,5 @@ def visual_image():
 
 
 if __name__ == '__main__':
-    visual_2d()
-    # visual_image()
+    # visual_2d()
+    visual_image()
