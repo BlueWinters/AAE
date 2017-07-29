@@ -16,9 +16,9 @@ class AAE(object):
                  batch_size=100, learn_rate=0.0001, prior_type='Gaussiss',
                  summary_path ='./summary', name='AAE'):
         # model parameters
-        self.encoder = Encoder(sess=sess, encoder=layer_encoder, z_dim=z_dim)
+        self.encoder = Encoder(encoder=layer_encoder, z_dim=z_dim)
         self.z_dim = z_dim
-        self.decoder = Decoder(sess=sess, decoder=layer_decoder, z_dim=z_dim)
+        self.decoder = Decoder(decoder=layer_decoder, z_dim=z_dim)
         self.disor = Discriminator(z_dim=z_dim, layers=layer_disor)
         self.sampler = Sampler(type=prior_type, dim=z_dim)
         # training config
@@ -34,25 +34,26 @@ class AAE(object):
         self.init_model()
 
     def __del__(self):
-        self.summary_writer.close()
+        # self.summary_writer.close()
         self.sess.close()
 
     def init_model(self):
         # initialize placeholder
-        self.x_input = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)], 'x_input')
+        self.x = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)], 'input')
         # self.z_faker = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)], 'z_faker')
         self.z_real = tf.placeholder(tf.float32, [self.batch_size, self.z_dim], 'z_real')
 
         # initialize variables
-        with tf.variable_scope(self.name) as vs:
-            self.encoder.init_model()
-            self.decoder.init_model()
-            self.disor.init_model()
+        self.encoder.init_model()
+        self.decoder.init_model()
+        self.disor.init_model()
         self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+
         # initialize optimizers
-        self.loss_encoder_decoder, self.opt_encoder_decoder = self.optimizer_encoder_decoder()
-        self.loss_disor_faker, self.loss_disor_real, self.opt_disor = self.optimizer_discriminator()
-        self.loss_encoder, self.opt_encoder = self.optimizer_encoder()
+        self.optimizer_encoder_decoder()
+        self.optimizer_discriminator()
+        self.optimizer_encoder()
+
         # summary
         self.merged = tf.summary.merge_all()
         self.summary_writer = tf.summary.FileWriter(self.summary_path, self.sess.graph)
@@ -67,79 +68,58 @@ class AAE(object):
         # initialize data
 
     def optimizer_encoder_decoder(self):
-        with tf.variable_scope(self.name, reuse=True) as vs:
-            f = self.encoder.feedforward(self.x_input)
-            output = self.decoder.feedforward(f)
-        loss = tf.reduce_mean(tf.reduce_sum(tf.square(output - self.x_input), [1]))
+        self.z_faker = self.encoder.feedforward(self.x)
+        self.y = self.decoder.feedforward(self.z_faker)
 
-        # summary
-        with tf.name_scope('encoder_decoder') as vs:
-            tf.summary.scalar('loss', loss)
+        with tf.name_scope('loss_encoder_decoder'):
+            self.loss_encoder_decoder = tf.reduce_mean(tf.reduce_sum(tf.square(self.y - self.x), [1]))
+            tf.summary.scalar('loss', self.loss_encoder_decoder)
 
-        # trainable variable for encoder-decoder
         vars = self.encoder.vars
         vars.extend(self.decoder.vars)
 
-        # name conflict, so rename the optimizer as Adam_en_de
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate, name='Adam_en_de')
-        return loss, optimizer.minimize(loss, var_list=vars)
+        with tf.name_scope('trainer_en_de'):
+            optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate)
+            self.trainer_encoder_decoder = optimizer.minimize(self.loss_encoder_decoder, var_list=vars)
 
     def optimizer_discriminator(self):
-        with tf.variable_scope(self.name, reuse=True) as vs:
-            z_faker = self.encoder.feedforward(self.x_input)
-            pred_faker = self.disor.predict(z_faker)
-            pred_real = self.disor.predict(self.z_real)
+        self.pred_faker = self.disor.predict(self.z_faker)
+        self.pred_real = self.disor.predict(self.z_real)
 
-        # loss type 1
-        # loss_faker = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred_faker,
-        #                                                                     labels=tf.zeros_like(pred_faker)))
-        # loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred_real,
-        #                                                                    labels=tf.ones_like(pred_real)))
+        with tf.name_scope('loss_discriminator'):
+            self.loss_disor_real = -tf.reduce_mean(tf.log(self.pred_real + self.tiny))
+            self.loss_disor_faker =  -tf.reduce_mean(tf.log(1. - self.pred_faker + self.tiny))
+            # control dependency
+            with tf.control_dependencies([self.loss_disor_faker, self.loss_disor_real]):
+                self.loss_disor = self.loss_disor_faker + self.loss_disor_real
+            # summary
+            tf.summary.scalar('loss_faker', self.loss_disor_faker)
+            tf.summary.scalar('loss_real', self.loss_disor_real)
+            tf.summary.scalar('loss', self.loss_disor)
 
-        # loss type 2
-        loss_real = -tf.reduce_mean(tf.log(pred_real + self.tiny))
-        loss_faker =  -tf.reduce_mean(tf.log(1. - pred_faker + self.tiny))
-
-        # control dependency
-        with tf.control_dependencies([loss_faker, loss_real]):
-            loss = loss_faker + loss_real
-
-        # summary
-        with tf.name_scope('discriminator') as vs:
-            tf.summary.scalar('loss_faker', loss_faker)
-            tf.summary.scalar('loss_real', loss_real)
-            tf.summary.scalar('loss', loss)
-
-        # name conflict, so rename the optimizer as Adam_dis
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate, name='Adam_dis')
-        return loss_faker, loss_real, optimizer.minimize(loss, var_list=self.disor.vars)
+        with tf.name_scope('trainer_disor'):
+            optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate)
+            self.trainer_disor = optimizer.minimize(self.loss_disor, var_list=self.disor.vars)
 
     def optimizer_encoder(self):
-        with tf.variable_scope(self.name, reuse=True) as vs:
-            f = self.encoder.feedforward(self.x_input)
-            pred = self.disor.predict(f)
-        # loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=pred,
-        #                                                               labels=tf.ones_like(pred)))
-        loss = -tf.reduce_mean(tf.log(pred + self.tiny))
+        with tf.name_scope('loss_encoder'):
+            self.loss_encoder = -tf.reduce_mean(tf.log(self.pred_faker + self.tiny))
+            tf.summary.scalar('loss', self.loss_encoder)
 
-        with tf.name_scope('encoder') as vs:
-            tf.summary.scalar('loss', loss)
+        with tf.name_scope('trainer_encoder'):
+            optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate)
+            self.trainer_encoder = optimizer.minimize(self.loss_encoder, var_list=self.encoder.vars)
 
-        # name conflict, so rename the optimizer as Adam_en
-        optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate, name='Adam_en')
-        return loss, optimizer.minimize(loss, var_list=self.encoder.vars)
-
-    def train_encoder_decoder(self, input, labels=None):
+    def train_encoder_decoder(self, input):
         # _, loss, summary = self.sess.run(
         #     [self.opt_encoder_decoder, self.loss_encoder_decoder, self.merged],
         #     {self.x_input:input})
         # self.summary_writer.add_summary(summary)
-        _, loss = self.sess.run(
-            [self.opt_encoder_decoder, self.loss_encoder_decoder],
-            {self.x_input:input})
+        _, loss = self.sess.run([self.trainer_encoder_decoder, self.loss_encoder_decoder],
+                                {self.x:input})
         return loss
 
-    def train_discriminator(self, input, labels=None):
+    def train_discriminator(self, input):
         # z_prior = self.sampler(self.batch_size)
         # _, loss_faker, loss_real, summary = self.sess.run(
         #     [self.opt_disor, self.loss_disor_faker, self.loss_disor_real, self.merged],
@@ -147,16 +127,16 @@ class AAE(object):
         # self.summary_writer.add_summary(summary)
         z_prior = self.sampler(self.batch_size)
         _, loss_faker, loss_real = self.sess.run(
-            [self.opt_disor, self.loss_disor_faker, self.loss_disor_real],
-            {self.x_input:input, self.z_real:z_prior})
+            [self.trainer_disor, self.loss_disor_faker, self.loss_disor_real],
+            {self.x:input, self.z_real:z_prior})
         return loss_faker, loss_real
 
-    def train_encoder(self, input, labels=None):
+    def train_encoder(self, input):
         # _, loss, summary = self.sess.run([self.opt_encoder, self.loss_encoder, self.merged],
         #                                  {self.x_encoder:input})
         # self.summary_writer.add_summary(summary)
-        _, loss = self.sess.run([self.opt_encoder, self.loss_encoder],
-                                         {self.x_input:input})
+        _, loss = self.sess.run([self.trainer_encoder, self.loss_encoder],
+                                {self.x:input})
         return loss
 
     def dist_to_image(self):
