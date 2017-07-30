@@ -1,5 +1,6 @@
 
 import tensorflow as tf
+import math as math
 import numpy as np
 import os as os
 import matplotlib.pyplot as plt
@@ -34,25 +35,26 @@ class AAE(object):
         self.init_model()
 
     def __del__(self):
-        # self.summary_writer.close()
         self.sess.close()
 
     def init_model(self):
         # initialize placeholder
-        self.x = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)], 'input')
-        # self.z_faker = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)], 'z_faker')
+        self.x_en_de = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)], 'input_en_de')
+        self.x_disor = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)], 'input_disor')
+        self.x_en = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)], 'input_en')
         self.z_real = tf.placeholder(tf.float32, [self.batch_size, self.z_dim], 'z_real')
 
         # initialize variables
         self.encoder.init_model()
         self.decoder.init_model()
         self.disor.init_model()
-        self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
 
         # initialize optimizers
         self.optimizer_encoder_decoder()
         self.optimizer_discriminator()
         self.optimizer_encoder()
+
+        self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
 
         # summary
         self.merged = tf.summary.merge_all()
@@ -60,91 +62,76 @@ class AAE(object):
         # initialize variable
         self.sess.run(tf.global_variables_initializer())
 
-    def  init_config(self):
-        # initialize summary path
-        if tf.gfile.Exists(self.summary_path):
-            tf.gfile.DeleteRecursively(self.summary_path)
-        tf.gfile.MakeDirs(self.summary_path)
-        # initialize data
-
     def optimizer_encoder_decoder(self):
-        self.z_faker = self.encoder.feedforward(self.x)
-        self.y = self.decoder.feedforward(self.z_faker)
+        z = self.encoder.feed_forward(self.x_en_de)
+        y = self.decoder.feed_forward(z)
 
         with tf.name_scope('loss_encoder_decoder'):
-            self.loss_encoder_decoder = tf.reduce_mean(tf.reduce_sum(tf.square(self.y - self.x), [1]))
-            tf.summary.scalar('loss', self.loss_encoder_decoder)
+            self.loss_encoder_decoder = tf.reduce_mean(tf.reduce_sum(tf.square(y - self.x_en_de), [1]))
+            tf.summary.scalar('reconstruction', self.loss_encoder_decoder)
 
-        vars = self.encoder.vars
+        vars = self.encoder.get_variable()
         vars.extend(self.decoder.vars)
 
-        with tf.name_scope('trainer_en_de'):
+        with tf.name_scope('trainer_encoder_decoder'):
             optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate)
             self.trainer_encoder_decoder = optimizer.minimize(self.loss_encoder_decoder, var_list=vars)
 
     def optimizer_discriminator(self):
-        self.pred_faker = self.disor.predict(self.z_faker)
-        self.pred_real = self.disor.predict(self.z_real)
+        z_faker = self.encoder.feed_forward(self.x_disor)
+        pred_faker = self.disor.predict(z_faker)
+        pred_real = self.disor.predict(self.z_real)
 
         with tf.name_scope('loss_discriminator'):
-            self.loss_disor_real = -tf.reduce_mean(tf.log(self.pred_real + self.tiny))
-            self.loss_disor_faker =  -tf.reduce_mean(tf.log(1. - self.pred_faker + self.tiny))
-            # control dependency
+            self.loss_disor_real = -tf.reduce_mean(tf.log(pred_real + self.tiny))
+            self.loss_disor_faker =  -tf.reduce_mean(tf.log(1. - pred_faker + self.tiny))
             with tf.control_dependencies([self.loss_disor_faker, self.loss_disor_real]):
                 self.loss_disor = self.loss_disor_faker + self.loss_disor_real
-            # summary
-            tf.summary.scalar('loss_faker', self.loss_disor_faker)
-            tf.summary.scalar('loss_real', self.loss_disor_real)
-            tf.summary.scalar('loss', self.loss_disor)
+                tf.summary.scalar('loss_faker', self.loss_disor_faker)
+                tf.summary.scalar('loss_real', self.loss_disor_real)
 
         with tf.name_scope('trainer_disor'):
             optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate)
             self.trainer_disor = optimizer.minimize(self.loss_disor, var_list=self.disor.vars)
 
     def optimizer_encoder(self):
+        z = self.encoder.feed_forward(self.x_en)
+        pred = self.disor.predict(z)
         with tf.name_scope('loss_encoder'):
-            self.loss_encoder = -tf.reduce_mean(tf.log(self.pred_faker + self.tiny))
-            tf.summary.scalar('loss', self.loss_encoder)
+            self.loss_encoder = -tf.reduce_mean(tf.log(pred + self.tiny))
+            tf.summary.scalar('loss_encoder', self.loss_encoder)
 
         with tf.name_scope('trainer_encoder'):
             optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate)
             self.trainer_encoder = optimizer.minimize(self.loss_encoder, var_list=self.encoder.vars)
 
     def train_encoder_decoder(self, input):
-        # _, loss, summary = self.sess.run(
-        #     [self.opt_encoder_decoder, self.loss_encoder_decoder, self.merged],
-        #     {self.x_input:input})
-        # self.summary_writer.add_summary(summary)
         _, loss = self.sess.run([self.trainer_encoder_decoder, self.loss_encoder_decoder],
-                                {self.x:input})
+                                {self.x_en_de:input})
         return loss
 
     def train_discriminator(self, input):
-        # z_prior = self.sampler(self.batch_size)
-        # _, loss_faker, loss_real, summary = self.sess.run(
-        #     [self.opt_disor, self.loss_disor_faker, self.loss_disor_real, self.merged],
-        #     {self.x_discriminator:input, self.z_discriminator:z_prior})
-        # self.summary_writer.add_summary(summary)
         z_prior = self.sampler(self.batch_size)
         _, loss_faker, loss_real = self.sess.run(
             [self.trainer_disor, self.loss_disor_faker, self.loss_disor_real],
-            {self.x:input, self.z_real:z_prior})
+            {self.x_disor:input, self.z_real:z_prior})
         return loss_faker, loss_real
 
     def train_encoder(self, input):
-        # _, loss, summary = self.sess.run([self.opt_encoder, self.loss_encoder, self.merged],
-        #                                  {self.x_encoder:input})
-        # self.summary_writer.add_summary(summary)
         _, loss = self.sess.run([self.trainer_encoder, self.loss_encoder],
-                                {self.x:input})
+                                {self.x_en:input})
         return loss
 
-    def dist_to_image(self):
+    def summary_to_image(self):
         with tf.name_scope('image') as vs:
-            z = tf.random_normal(shape=[self.batch_size, self.z_dim])
-            image = self.decoder.feedforward(z)
+            z = tf.random_normal(shape=[10, self.z_dim])
+            image = self.decoder.feed_forward(z)
             image = tf.reshape(image, [10, 28, 28, 1])
             tf.summary.image('image', image, max_outputs=10)
+
+    def write_summary(self, n):
+        # summary = self.sess.run([])
+        self.summary_writer.add_summary(self.summary, n)
 
     def save(self, name):
         save_dir = 'ckpt/'
@@ -159,7 +146,7 @@ class AAE(object):
 
     def visual(self, input, labels):
         with tf.variable_scope(self.name, reuse=True) as vs:
-            f = self.sess.run(self.encoder.feedforward(input))
+            f = self.sess.run(self.encoder.feed_forward(input))
         point = []
         plt.clf()
         color_list = get_10color_list()
@@ -173,15 +160,15 @@ class AAE(object):
 
     def output(self, z):
         with tf.variable_scope(self.name, reuse=True) as vs:
-            image = self.sess.run(self.decoder.feedforward(z))
+            image = self.sess.run(self.decoder.feed_forward(z))
         return image
 
 
 if __name__ == '__main__':
-    encoder_layer = [28*28, 400, 100]
+    encoder_layer = [28*28, 1000, 1000]
     z_dim = 2
-    decoder_layer = [100, 400, 28*28]
-    disor_layer = [2, 16, 1]
+    decoder_layer = [1000, 1000, 28*28]
+    disor_layer = [2, 1000, 1000, 1]
     num_epochs = 100
     batch_size = 100
     learn_rate = 1e-3

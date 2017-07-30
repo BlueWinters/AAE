@@ -24,53 +24,20 @@ class Encoder(object):
         self.scope = scope
         self.vars = tf.get_collection(key=tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope.name)
 
-    def feedforward(self, input):
-        h = input
+    def get_variable(self):
+        vars = []
+        for n in range(len(self.vars)):
+            vars.append(self.vars[n])
+        return vars
 
+    def feed_forward(self, input):
+        h = input
         with tf.variable_scope(self.scope, reuse=True) as scope:
             assert self.scope.name == scope.name
             for n in range(len(self.layer_set)):
                 with tf.variable_scope("layer{}".format(n), reuse=True):
-                    ret = ly.cal_fc(h)
+                    ret = ly.calc_fc(h)
                     h = ly.calc_bn(ret)
                     h = ly.calc_relu(h)
         return ret
-
-    # def _set_fc_vars(self, in_dim, out_dim, stddev=0.1):
-    #     W = tf.get_variable('W', [in_dim, out_dim],
-    #                         initializer=tf.truncated_normal_initializer(stddev=stddev))
-    #     b = tf.get_variable('b', [out_dim],
-    #                         initializer=tf.constant_initializer(0))
-    #     return W, b
-    #
-    # def _set_bn_vars(self, shape):
-    #     gamma = tf.get_variable('gamma', shape,
-    #                             initializer=tf.truncated_normal_initializer(stddev=1.))
-    #     beta = tf.get_variable('beta', shape,
-    #                            initializer=tf.truncated_normal_initializer(stddev=0.))
-    #     return gamma, beta
-    #
-    # def _calc_matmult(self, input, name='matmult'):
-    #     with tf.name_scope(name):
-    #         W = tf.get_variable('W')
-    #         b = tf.get_variable('b')
-    #         a = tf.matmul(input, W) + b
-    #         # with tf.name_scope('summary'):
-    #         #     tf.summary.histogram('W', W)
-    #         #     tf.summary.histogram('b', b)
-    #         return a
-    #
-    # def _calc_active(self, input, name='active'):
-    #     with tf.name_scope(name):
-    #         return tf.nn.relu(input)
-    #
-    # def _calc_bn(self, input, name='bn'):
-    #     with tf.name_scope(name):
-    #         gamma = tf.get_variable('gamma')
-    #         beta = tf.get_variable('beta')
-    #         mean, var = tf.nn.moments(input, [0])
-    #         # with tf.name_scope('summary'):
-    #         #     tf.summary.histogram('gamma', gamma)
-    #         #     tf.summary.histogram('beta', beta)
-    #         return gamma*(input-mean) / tf.sqrt(1e-6+var) + beta
 

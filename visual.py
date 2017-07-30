@@ -6,10 +6,10 @@ import matplotlib.pyplot as plt
 from model import AAE
 from tensorflow.examples.tutorials.mnist import input_data
 
-encoder_layer = [28*28, 400, 100]
+encoder_layer = [28*28, 1000, 400, 100]
 z_dim = 2
-decoder_layer = [100, 400, 28*28]
-disor_layer = [2, 16, 1]
+decoder_layer = [100, 400, 1000, 28*28]
+disor_layer = [2, 32, 16, 1]
 
 
 def visual_2d():

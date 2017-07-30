@@ -6,10 +6,10 @@ from model import AAE
 from tensorflow.examples.tutorials.mnist import input_data
 
 
-encoder_layer = [28*28, 1000, 400, 100]
+encoder_layer = [28*28, 1000, 1000]
 z_dim = 2
-decoder_layer = [100, 400, 1000, 28*28]
-disor_layer = [2, 32, 16, 1]
+decoder_layer = [1000, 1000, 28*28]
+disor_layer = [2, 1000, 1000, 1]
 num_epochs = 100
 num_epochs_en_de = 1
 num_epochs_dis = 1
@@ -23,7 +23,7 @@ summary_path = './summary'
 
 sess = tf.Session()
 aae = AAE(sess, encoder_layer, z_dim, decoder_layer, disor_layer)
-sess.run
+
 # data read & train
 mnist = input_data.read_data_sets("mnist/", one_hot=True)
 
@@ -48,11 +48,10 @@ for epoch in range(num_epochs):
         for epoch_en in range(num_epochs_en):
             loss_encoder += aae.train_encoder(input=batch_x)/float(num_epochs_en*total_batch)
     print("Epoch {:3d}/{:d}, loss_en_de {:9f}, loss_dis_faker {:9f}, loss_dis_real {:9f}, loss_encoder {:9f}"
-          .format(num_epochs, epoch+1, loss_encoder_decoder, loss_disor_faker, loss_disor_real, loss_encoder))
+          .format(epoch+1, num_epochs, loss_encoder_decoder, loss_disor_faker, loss_disor_real, loss_encoder))
+
+
 print("Training time : {}".format(time.time() - start_time))
-
-#
-
 
 # save model
 aae.save('model.ckpt')
