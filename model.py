@@ -9,45 +9,42 @@ from encoder import Encoder
 from decoder import Decoder
 from discriminator import Discriminator
 from sampler import Sampler
+
 from tools import get_10color_list
 
 
 class AAE(object):
-    def __init__(self, sess, layer_encoder, z_dim, layer_decoder, layer_disor,
-                 batch_size=100, learn_rate=0.0001, prior_type='Gaussiss',
-                 summary_path ='./summary', name='AAE'):
+    def __init__(self, sess, in_dim=784, z_dim=2,
+                 batch_size=100, learn_rate=0.0001, name='AAE'):
         # model parameters
-        self.encoder = Encoder(encoder=layer_encoder, z_dim=z_dim)
+        self.encoder = Encoder()
+        self.decoder = Decoder()
+        self.disor = Discriminator()
+        self.sampler = Sampler()
+        self.in_dim = in_dim
         self.z_dim = z_dim
-        self.decoder = Decoder(decoder=layer_decoder, z_dim=z_dim)
-        self.disor = Discriminator(z_dim=z_dim, layers=layer_disor)
-        self.sampler = Sampler(type=prior_type, dim=z_dim)
+
         # training config
         self.name = name
         self.sess = sess
-        self.summary_path = summary_path
+        self.summary_path = './summary'
         self.tiny = 1e-8
         # other
         self.batch_size = batch_size
         self.learn_rate = learn_rate
 
         # initialize model
-        self.init_model()
+        self._init_model()
 
     def __del__(self):
         self.sess.close()
 
-    def init_model(self):
+    def _init_model(self):
         # initialize placeholder
-        self.x_en_de = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)], 'input_en_de')
-        self.x_disor = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)], 'input_disor')
-        self.x_en = tf.placeholder(tf.float32, [self.batch_size, self.encoder(0)], 'input_en')
+        self.x_en_de = tf.placeholder(tf.float32, [self.batch_size, self.in_dim], 'input_en_de')
+        self.x_disor = tf.placeholder(tf.float32, [self.batch_size, self.in_dim], 'input_disor')
+        self.x_en = tf.placeholder(tf.float32, [self.batch_size, self.in_dim], 'input_en')
         self.z_real = tf.placeholder(tf.float32, [self.batch_size, self.z_dim], 'z_real')
-
-        # initialize variables
-        self.encoder.init_model()
-        self.decoder.init_model()
-        self.disor.init_model()
 
         # initialize optimizers
         self.optimizer_encoder_decoder()
@@ -67,20 +64,23 @@ class AAE(object):
         y = self.decoder.feed_forward(z)
 
         with tf.name_scope('loss_encoder_decoder'):
-            self.loss_encoder_decoder = tf.reduce_mean(tf.reduce_sum(tf.square(y - self.x_en_de), [1]))
+            loss = self.x_en_de*tf.log(y+self.tiny) + (1.-y)*tf.log(1-y+self.tiny)
+            self.loss_encoder_decoder = tf.reduce_mean(-tf.reduce_sum(loss, axis=1))
             tf.summary.scalar('reconstruction', self.loss_encoder_decoder)
 
         vars = self.encoder.get_variable()
         vars.extend(self.decoder.vars)
+        print(len(vars))
 
         with tf.name_scope('trainer_encoder_decoder'):
-            optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate)
-            self.trainer_encoder_decoder = optimizer.minimize(self.loss_encoder_decoder, var_list=vars)
+            optimizer = tf.train.AdamOptimizer(self.learn_rate)
+            self.trainer_encoder_decoder = optimizer.minimize(self.loss_encoder_decoder,
+                                                              var_list=vars)
 
     def optimizer_discriminator(self):
         z_faker = self.encoder.feed_forward(self.x_disor)
-        pred_faker = self.disor.predict(z_faker)
-        pred_real = self.disor.predict(self.z_real)
+        pred_faker = self.disor.feed_forward(z_faker)
+        pred_real = self.disor.feed_forward(self.z_real)
 
         with tf.name_scope('loss_discriminator'):
             self.loss_disor_real = -tf.reduce_mean(tf.log(pred_real + self.tiny))
@@ -93,10 +93,11 @@ class AAE(object):
         with tf.name_scope('trainer_disor'):
             optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate)
             self.trainer_disor = optimizer.minimize(self.loss_disor, var_list=self.disor.vars)
+            print(len(self.disor.vars))
 
     def optimizer_encoder(self):
         z = self.encoder.feed_forward(self.x_en)
-        pred = self.disor.predict(z)
+        pred = self.disor.feed_forward(z)
         with tf.name_scope('loss_encoder'):
             self.loss_encoder = -tf.reduce_mean(tf.log(pred + self.tiny))
             tf.summary.scalar('loss_encoder', self.loss_encoder)
@@ -175,4 +176,4 @@ if __name__ == '__main__':
     shape = [batch_size, 28*28]
 
     sess = tf.Session()
-    aae = AAE(sess, encoder_layer, z_dim, decoder_layer, disor_layer)
+    aae = AAE(sess)

@@ -48,9 +48,17 @@ def calc_relu(input, name='relu'):
     with tf.name_scope(name):
         return tf.nn.relu(input)
 
+def calc_sigmoid(input, name='sigmoid'):
+    with tf.name_scope(name):
+        return tf.nn.sigmoid(input)
+
 def calc_bn(input, name='bn'):
     with tf.name_scope(name):
         gamma = tf.get_variable('gamma')
         beta = tf.get_variable('beta')
         mean, var = tf.nn.moments(input, [0])
         return gamma*(input-mean) / tf.sqrt(1e-6+var) + beta
+
+def calc_dropout(input, p=0.5, name='dropout'):
+    with tf.name_scope(name):
+        tf.nn.dropout(input, p)

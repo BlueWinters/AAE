@@ -3,21 +3,25 @@ import tensorflow as tf
 import layers as ly
 
 class Discriminator(object):
-    def __init__(self, z_dim, layers, name='Discriminator'):
-        self.z_dim = z_dim
-        self.layers = layers
+    def __init__(self, in_dim=2, h_dim=1000, out_dim=1, name='Discriminator'):
+        self.in_dim = in_dim
+        self.h_dim = h_dim
+        self.out_dim = out_dim
         self.name = name
         self.vars = []
 
-    def init_model(self):
-        in_list = [self.z_dim]
-        in_list.extend(self.layers[:-1])
-        out_list = self.layers[:]
+        self._init_model()
+
+    def _init_model(self):
         with tf.variable_scope(self.name) as scope:
-            for n, (in_dim, out_dim) in enumerate(zip(in_list, out_list)):
-                with tf.variable_scope("layer{}".format(n)):
-                    ly.set_fc_vars(in_dim=in_dim, out_dim=out_dim)
-                    ly.set_bn_vars(shape=[1,out_dim])
+            with tf.variable_scope("layer1"):
+                ly.set_fc_vars(in_dim=self.in_dim, out_dim=self.h_dim)
+                ly.set_bn_vars(shape=[1,self.h_dim])
+            with tf.variable_scope("layer2"):
+                ly.set_fc_vars(in_dim=self.h_dim, out_dim=self.h_dim)
+                ly.set_bn_vars(shape=[1,self.h_dim])
+            with tf.variable_scope("layer3"):
+                ly.set_fc_vars(in_dim=self.h_dim, out_dim=self.out_dim)
         self.scope = scope
         self.vars = tf.get_collection(key=tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope.name)
 
@@ -27,15 +31,16 @@ class Discriminator(object):
             vars.append(self.vars[n])
         return vars
 
-    def predict(self, input):
-        h = input
-
-        with tf.variable_scope(self.scope, reuse=True) as scope:
-            assert self.scope.name == scope.name
-            for n in range(len(self.layers)):
-                with tf.variable_scope("layer{}".format(n), reuse=True):
-                    ret = ly.calc_fc(h)
-                    h = ly.calc_bn(ret)
-                    h = ly.calc_relu(h)
-            with tf.name_scope('output'):
-                return tf.nn.sigmoid(ret)
+    def feed_forward(self, input):
+        with tf.variable_scope(self.scope, reuse=True):
+            with tf.variable_scope("layer1", reuse=True):
+                h = ly.calc_fc(input)
+                h = ly.calc_bn(h)
+                h = ly.calc_relu(h)
+            with tf.variable_scope("layer2", reuse=True):
+                h = ly.calc_fc(h)
+                h = ly.calc_bn(h)
+            with tf.variable_scope("layer3", reuse=True):
+                h = ly.calc_fc(h)
+                output = ly.calc_sigmoid(h)
+        return output
