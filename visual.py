@@ -16,7 +16,7 @@ def visual_2d():
     # session
     sess = tf.Session()
     # model
-    aae = AAE(sess, encoder_layer, z_dim, decoder_layer, disor_layer)
+    aae = AAE(sess)
     # data read & train
     mnist = input_data.read_data_sets("mnist/", one_hot=True)
     # visual
@@ -26,7 +26,7 @@ def visual_image():
     # session
     sess = tf.Session()
     # # model
-    aae = AAE(sess, encoder_layer, z_dim, decoder_layer, disor_layer)
+    aae = AAE(sess)
 
     # random sample from distribution
     n_samples = 100
@@ -48,5 +48,5 @@ def visual_image():
 
 
 if __name__ == '__main__':
-    # visual_2d()
-    visual_image()
+    visual_2d()
+    # visual_image()

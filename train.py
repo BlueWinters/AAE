@@ -22,7 +22,7 @@ summary_path = './summary'
 
 
 sess = tf.Session()
-aae = AAE(sess, encoder_layer, z_dim, decoder_layer, disor_layer)
+aae = AAE(sess)
 
 # data read & train
 mnist = input_data.read_data_sets("mnist/", one_hot=True)

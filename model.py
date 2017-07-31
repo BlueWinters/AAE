@@ -64,13 +64,13 @@ class AAE(object):
         y = self.decoder.feed_forward(z)
 
         with tf.name_scope('loss_encoder_decoder'):
-            loss = self.x_en_de*tf.log(y+self.tiny) + (1.-y)*tf.log(1-y+self.tiny)
-            self.loss_encoder_decoder = tf.reduce_mean(-tf.reduce_sum(loss, axis=1))
+            loss = self.x_en_de * tf.log(y + self.tiny) + (1. - y) * tf.log(1 - y + self.tiny)
+            self.loss_encoder_decoder = tf.reduce_mean(- tf.reduce_sum(loss, axis=1))
             tf.summary.scalar('reconstruction', self.loss_encoder_decoder)
 
         vars = self.encoder.get_variable()
         vars.extend(self.decoder.vars)
-        print(len(vars))
+        # print(len(vars))
 
         with tf.name_scope('trainer_encoder_decoder'):
             optimizer = tf.train.AdamOptimizer(self.learn_rate)
@@ -93,7 +93,7 @@ class AAE(object):
         with tf.name_scope('trainer_disor'):
             optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate)
             self.trainer_disor = optimizer.minimize(self.loss_disor, var_list=self.disor.vars)
-            print(len(self.disor.vars))
+            # print(len(self.disor.vars))
 
     def optimizer_encoder(self):
         z = self.encoder.feed_forward(self.x_en)
