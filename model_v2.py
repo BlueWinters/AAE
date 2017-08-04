@@ -15,22 +15,23 @@ from tensorflow.examples.tutorials.mnist import input_data
 def get_config_path():
     data_path = './mnist'
     summary_path = './summary'
-    save_path = './save'
+    save_path = 'ckpt/model'
     return data_path, summary_path, save_path
 
-def generate_image_grid(op):
+def generate_image_grid():
     encoder = Encoder()
     decoder = Decoder()
-    # discriminator = Discriminator()
-    # sampler = Sampler()
+    discriminator = Discriminator()
 
+    vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
     _, _, save_path = get_config_path()
 
     with tf.Session() as sess:
-        saver = tf.train.Saver()
+        sess.run(tf.global_variables_initializer())
+        saver = tf.train.Saver(vars)
         saver.restore(sess, save_path=save_path)
-        x_points = np.arange(-10, 10, 1.5).astype(np.float32)
-        y_points = np.arange(-10, 10, 1.5).astype(np.float32)
+        x_points = np.arange(-1, 1, 0.15).astype(np.float32)
+        y_points = np.arange(-1, 1, 0.15).astype(np.float32)
 
         nx, ny = len(x_points), len(y_points)
         plt.subplot()
@@ -39,7 +40,7 @@ def generate_image_grid(op):
         for i, g in enumerate(gs):
             z = np.concatenate(([x_points[int(i / ny)]], [y_points[int(i % nx)]]))
             z = np.reshape(z, (1, 2))
-            image = decoder.feed_forward(z)
+            image = decoder.feed_forward(z, is_train=False)
             x = sess.run(image)
             ax = plt.subplot(g)
             img = np.array(x.tolist()).reshape(28, 28)
@@ -83,7 +84,8 @@ def train():
         labels=tf.ones_like(d_real), logits=d_real))
     dc_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
         labels=tf.zeros_like(d_fake), logits=d_fake))
-    dc_loss = dc_loss_fake + dc_loss_real
+    with tf.control_dependencies([dc_loss_fake, dc_loss_real]):
+        dc_loss = dc_loss_fake + dc_loss_real
 
     # generator loss
     gen_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
@@ -98,9 +100,6 @@ def train():
     auto_encoder_optimizer = tf.train.AdamOptimizer(learn_rate).minimize(ae_loss)
     discriminator_optimizer = tf.train.AdamOptimizer(learn_rate).minimize(dc_loss, var_list=dis_var)
     generator_optimizer = tf.train.AdamOptimizer(learn_rate).minimize(gen_loss, var_list=en_var)
-
-    # initialize variables
-    init = tf.global_variables_initializer()
 
     # reshape images to display them
     input_images = tf.reshape(x, [-1, 28, 28, 1])
@@ -126,25 +125,26 @@ def train():
     # train the model
     with tf.Session() as sess:
         writer = tf.summary.FileWriter(logdir=summary_path, graph=sess.graph)
+        sess.run(tf.global_variables_initializer())
 
         # training process
         for epochs in range(n_epochs):
             for n in range(1, n_batches + 1):
-                z_real_s = sampler()
+                z_real_s = sampler(batch_size)
                 batch_x, _ = mnist.train.next_batch(batch_size)
                 sess.run(auto_encoder_optimizer, feed_dict={x: batch_x})
                 sess.run(discriminator_optimizer, feed_dict={x:batch_x, z_real:z_real_s})
                 sess.run(generator_optimizer, feed_dict={x:batch_x})
                 # summary
                 if n % summary_step == 0:
-                    ae_loss, dc_r_loss, dc_f_loss, gen_loss, summary = sess.run(
+                    vloss_ae, vloss_dc_f, vloss_dc_r, vloss_gen, summary = sess.run(
                         [ae_loss, dc_loss_fake, dc_loss_real, gen_loss, summary_op],
                         feed_dict={x: batch_x, z_real:z_real_s})
                     writer.add_summary(summary, global_step=step)
 
                     liner = "Epoch {:3d}/{:d}, loss_en_de {:9f}, " \
                             "loss_dis_faker {:9f}, loss_dis_real {:9f}, loss_encoder {:9f}"\
-                        .format(epochs, n, ae_loss, dc_f_loss, dc_r_loss, gen_loss)
+                        .format(epochs, n, vloss_ae, vloss_dc_f, vloss_dc_r, vloss_gen)
                     print(liner)
 
                     with open(summary_path + '/log.txt', 'a') as log:
@@ -154,3 +154,7 @@ def train():
         # save model
         saver = tf.train.Saver()
         saver.save(sess, save_path=save_path)
+
+if __name__ == '__main__':
+    # train()
+    generate_image_grid()
