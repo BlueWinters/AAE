@@ -1,16 +1,11 @@
 
 import tensorflow as tf
-import math as math
-import numpy as np
 import os as os
-import matplotlib.pyplot as plt
 
 from encoder import Encoder
 from decoder import Decoder
 from discriminator import Discriminator
 from sampler import Sampler
-
-from tools import get_10color_list
 
 
 class AAE(object):
@@ -46,6 +41,7 @@ class AAE(object):
         self.x_en = tf.placeholder(tf.float32, [self.batch_size, self.in_dim], 'input_en')
         self.z_real = tf.placeholder(tf.float32, [self.batch_size, self.z_dim], 'z_real')
 
+
         # initialize optimizers
         self.optimizer_encoder_decoder()
         self.optimizer_discriminator()
@@ -59,36 +55,43 @@ class AAE(object):
         # initialize variable
         self.sess.run(tf.global_variables_initializer())
 
+    def get_variables(self):
+        self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+        self.vars_en_de = [vars for vars in self.vars if self.encoder.name in vars.name]
+        self.vars_disor = [vars for vars in self.vars if self.encoder.name in vars.name]
+
     def optimizer_encoder_decoder(self):
         z = self.encoder.feed_forward(self.x_en_de)
         y = self.decoder.feed_forward(z)
 
         with tf.name_scope('loss_encoder_decoder'):
-            loss = self.x_en_de * tf.log(y + self.tiny) + (1. - y) * tf.log(1 - y + self.tiny)
-            self.loss_encoder_decoder = tf.reduce_mean(- tf.reduce_sum(loss, axis=1))
+            # loss = self.x_en_de * tf.log(y + self.tiny) + (1. - self.x_en_de) * tf.log(1 - y + self.tiny)
+            # self.loss_encoder_decoder = tf.reduce_mean(- tf.reduce_sum(loss, axis=1))
+            loss = tf.reduce_sum(tf.square(y - self.x_en_de), axis=1)
+            self.loss_encoder_decoder = tf.reduce_mean(loss)
             tf.summary.scalar('reconstruction', self.loss_encoder_decoder)
 
-        vars = self.encoder.get_variable()
-        vars.extend(self.decoder.vars)
-        # print(len(vars))
+        # vars = self.encoder.get_variable()
+        # vars.extend(self.decoder.vars)
 
         with tf.name_scope('trainer_encoder_decoder'):
-            optimizer = tf.train.AdamOptimizer(self.learn_rate)
-            self.trainer_encoder_decoder = optimizer.minimize(self.loss_encoder_decoder,
-                                                              var_list=vars)
+            optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate)
+            self.trainer_encoder_decoder = optimizer.minimize(self.loss_encoder_decoder)
 
     def optimizer_discriminator(self):
         z_faker = self.encoder.feed_forward(self.x_disor)
         pred_faker = self.disor.feed_forward(z_faker)
+
+        # self.z_real = tf.random_normal([self.batch_size, self.z_dim]) * 5
         pred_real = self.disor.feed_forward(self.z_real)
 
         with tf.name_scope('loss_discriminator'):
             self.loss_disor_real = -tf.reduce_mean(tf.log(pred_real + self.tiny))
             self.loss_disor_faker =  -tf.reduce_mean(tf.log(1. - pred_faker + self.tiny))
-            with tf.control_dependencies([self.loss_disor_faker, self.loss_disor_real]):
-                self.loss_disor = self.loss_disor_faker + self.loss_disor_real
-                tf.summary.scalar('loss_faker', self.loss_disor_faker)
-                tf.summary.scalar('loss_real', self.loss_disor_real)
+            # with tf.control_dependencies([self.loss_disor_faker, self.loss_disor_real]):
+            self.loss_disor = self.loss_disor_faker + self.loss_disor_real
+            tf.summary.scalar('loss_faker', self.loss_disor_faker)
+            tf.summary.scalar('loss_real', self.loss_disor_real)
 
         with tf.name_scope('trainer_disor'):
             optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate)
@@ -123,17 +126,6 @@ class AAE(object):
                                 {self.x_en:input})
         return loss
 
-    def summary_to_image(self):
-        with tf.name_scope('image') as vs:
-            z = tf.random_normal(shape=[10, self.z_dim])
-            image = self.decoder.feed_forward(z)
-            image = tf.reshape(image, [10, 28, 28, 1])
-            tf.summary.image('image', image, max_outputs=10)
-
-    def write_summary(self, n):
-        # summary = self.sess.run([])
-        self.summary_writer.add_summary(self.summary, n)
-
     def save(self, name):
         save_dir = 'ckpt/'
         if not os.path.isdir(save_dir):
@@ -145,24 +137,15 @@ class AAE(object):
         saver = tf.train.Saver(self.vars)
         saver.restore(self.sess, path)
 
-    def visual(self, input, labels):
-        with tf.variable_scope(self.name, reuse=True) as vs:
-            f = self.sess.run(self.encoder.feed_forward(input))
-        point = []
-        plt.clf()
-        color_list = get_10color_list()
-        for n in range(10):
-            index = np.where(labels[:,n] == 1)[0]
-            point = f[index.tolist(),:]
-            x = point[:,0]
-            y = point[:,1]
-            plt.scatter(x, y, color=color_list[n], edgecolors='face')
-        plt.show()
+    def image_to_latent(self, input):
+        return self.sess.run(self.encoder.feed_forward(input, False))
 
-    def output(self, z):
-        with tf.variable_scope(self.name, reuse=True) as vs:
-            image = self.sess.run(self.decoder.feed_forward(z))
-        return image
+    def image_to_image(self, input):
+        z = self.sess.run(self.encoder.feed_forward(input, False))
+        return self.sess.run(self.decoder.feed_forward(z, False))
+
+    def latent_to_image(self, z):
+        return self.sess.run(self.decoder.feed_forward(z, False))
 
 
 if __name__ == '__main__':
