@@ -83,8 +83,47 @@ def generate_reconstruct_image():
                 ax[5+i][j].set_axis_off()
         plt.show()
 
+def visual_2d():
+    def get_10color_list():
+        color = [[0.0, 0.0, 0.0], [0.0, 0.0, 1.0],
+                 [0.0, 0.0, 1.0], [0.0, 1.0, 1.0],
+                 [1.0, 0.0, 0.0], [1.0, 0.0, 1.0],
+                 [1.0, 1.0, 0.0], [1.0, 1.0, 0.5], # [1,1,1] --> white
+                 [0.5, 1.0, 1.0], [1.0, 0.5, 1.0]] # last three are chosen randomly
+        return color
+    #
+    encoder = Encoder()
+    decoder = Decoder()
+    discriminator = Discriminator()
 
+    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    data_path, _, save_path = get_config_path()
+
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        saver = tf.train.Saver(vars)
+        saver.restore(sess, save_path=save_path)
+
+        mnist = input_data.read_data_sets(data_path, one_hot=True)
+        images, labels = mnist.train.images, mnist.train.labels
+
+        with tf.name_scope('reconstruction'):
+            input = tf.placeholder(tf.float32, [None,784], 'input')
+            z = encoder.feed_forward(input, is_train=False)
+
+        images = images.reshape([-1, 28*28])
+        all_point = sess.run(z, feed_dict={input:images})
+
+        color_list = get_10color_list()
+        for n in range(10):
+            index = np.where(labels[:,n] == 1)[0]
+            point = all_point[index.tolist(),:]
+            x = point[:,0]
+            y = point[:,1]
+            plt.scatter(x, y, color=color_list[n], edgecolors='face')
+        plt.show()
 
 if __name__ == '__main__':
-    generate_image_grid()
+    # generate_image_grid()
     # generate_reconstruct_image()
+    visual_2d()

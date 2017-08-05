@@ -10,7 +10,7 @@ class Decoder(object):
         self.name = name
         self.vars = []
 
-        self.type = 'dropout'
+        self.type = 'batch_norm'
 
         self._init_model()
 
@@ -42,6 +42,7 @@ class Decoder(object):
                 ly.set_bn_vars(shape=[1,self.h_dim])
             with tf.variable_scope("layer3"):
                 ly.set_fc_vars(in_dim=self.h_dim, out_dim=self.out_dim)
+
         self.scope = scope
         self.vars = tf.get_collection(key=tf.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
 
@@ -54,6 +55,7 @@ class Decoder(object):
             with tf.variable_scope("layer2"):
                 h = ly.calc_fc(h)
                 h = ly.calc_bn(h, is_train)
+                h = ly.calc_relu(h)
             with tf.variable_scope("layer3"):
                 h = ly.calc_fc(h)
                 output = ly.calc_sigmoid(h)
