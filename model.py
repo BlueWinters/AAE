@@ -1,162 +1,190 @@
 
 import tensorflow as tf
-import os as os
+import numpy as np
 
 from encoder import Encoder
 from decoder import Decoder
 from discriminator import Discriminator
 from sampler import Sampler
 
-
-class AAE(object):
-    def __init__(self, sess, in_dim=784, z_dim=2,
-                 batch_size=100, learn_rate=0.0001, name='AAE'):
-        # model parameters
-        self.encoder = Encoder()
-        self.decoder = Decoder()
-        self.disor = Discriminator()
-        self.sampler = Sampler()
-        self.in_dim = in_dim
-        self.z_dim = z_dim
-
-        # training config
-        self.name = name
-        self.sess = sess
-        self.summary_path = './summary'
-        self.tiny = 1e-8
-        # other
-        self.batch_size = batch_size
-        self.learn_rate = learn_rate
-
-        # initialize model
-        self._init_model()
-
-    def __del__(self):
-        self.sess.close()
-
-    def _init_model(self):
-        # initialize placeholder
-        self.x_en_de = tf.placeholder(tf.float32, [self.batch_size, self.in_dim], 'input_en_de')
-        self.x_disor = tf.placeholder(tf.float32, [self.batch_size, self.in_dim], 'input_disor')
-        self.x_en = tf.placeholder(tf.float32, [self.batch_size, self.in_dim], 'input_en')
-        self.z_real = tf.placeholder(tf.float32, [self.batch_size, self.z_dim], 'z_real')
+import matplotlib.pyplot as plt
+from matplotlib import gridspec
+from tensorflow.examples.tutorials.mnist import input_data
 
 
-        # initialize optimizers
-        self.optimizer_encoder_decoder()
-        self.optimizer_discriminator()
-        self.optimizer_encoder()
+def get_config_path():
+    data_path = './mnist'
+    summary_path = './summary'
+    save_path = 'ckpt/model'
+    return data_path, summary_path, save_path
 
-        self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
+def generate_image_grid():
+    encoder = Encoder()
+    decoder = Decoder()
+    discriminator = Discriminator()
 
-        # summary
-        self.merged = tf.summary.merge_all()
-        self.summary_writer = tf.summary.FileWriter(self.summary_path, self.sess.graph)
-        # initialize variable
-        self.sess.run(tf.global_variables_initializer())
+    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    data_path, _, save_path = get_config_path()
 
-    def get_variables(self):
-        self.vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-        self.vars_en_de = [vars for vars in self.vars if self.encoder.name in vars.name]
-        self.vars_disor = [vars for vars in self.vars if self.encoder.name in vars.name]
+    # plt1 = plt.figure(1)
+    # plt2 = plt.figure(2)
 
-    def optimizer_encoder_decoder(self):
-        z = self.encoder.feed_forward(self.x_en_de)
-        y = self.decoder.feed_forward(z)
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        saver = tf.train.Saver(vars)
+        saver.restore(sess, save_path=save_path)
 
-        with tf.name_scope('loss_encoder_decoder'):
-            # loss = self.x_en_de * tf.log(y + self.tiny) + (1. - self.x_en_de) * tf.log(1 - y + self.tiny)
-            # self.loss_encoder_decoder = tf.reduce_mean(- tf.reduce_sum(loss, axis=1))
-            loss = tf.reduce_sum(tf.square(y - self.x_en_de), axis=1)
-            self.loss_encoder_decoder = tf.reduce_mean(loss)
-            tf.summary.scalar('reconstruction', self.loss_encoder_decoder)
+        # figure1
+        x_points = np.arange(-10, 10, 1.5).astype(np.float32)
+        y_points = np.arange(-10, 10, 1.5).astype(np.float32)
+        nx, ny = len(x_points), len(y_points)
 
-        # vars = self.encoder.get_variable()
-        # vars.extend(self.decoder.vars)
+        plt.subplot()
+        gs = gridspec.GridSpec(nx, ny, hspace=0.05, wspace=0.05)
+        for i, g in enumerate(gs):
+            z = np.concatenate(([x_points[int(i / ny)]], [y_points[int(i % nx)]]))
+            z = np.reshape(z, (1, 2))
+            image = decoder.feed_forward(z, is_train=False)
+            x = sess.run(image)
+            ax = plt.subplot(g)
+            img = np.array(x.tolist()).reshape(28, 28)
+            ax.imshow(img, cmap='gray')
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set_aspect('auto')
+        plt.show()
 
-        with tf.name_scope('trainer_encoder_decoder'):
-            optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate)
-            self.trainer_encoder_decoder = optimizer.minimize(self.loss_encoder_decoder)
+        # figure2
+        # mnist = input_data.read_data_sets(data_path, one_hot=True)
+        # x, _ = mnist.validation.next_batch(100)
+        #
+        # with tf.name_scope('reconstruction'):
+        #     input = tf.placeholder(tf.float32, [100,784], 'input')
+        #     z = encoder.feed_forward(x, is_train=False)
+        #     output = decoder.feed_forward(z, is_train=False)
+        #
+        # x = x.reshape([100, 28*28])
+        # y = sess.run(output, feed_dict={input:x})
+        #
+        # figure, ax = plt.subplots(10, 10)
+        # for i in range(5):
+        #     for j in range(10):
+        #         ax[i][j].imshow(np.reshape(x[i*10+j,:], (28, 28)), cmap ='gray')
+        #         ax[i][j].set_axis_off()
+        # for i in range(5):
+        #     for j in range(10):
+        #         ax[5+i][j].imshow(np.reshape(y[i*10+j,:], (28, 28)), cmap ='gray')
+        #         ax[5+i][j].set_axis_off()
+        # plt.show()
 
-    def optimizer_discriminator(self):
-        z_faker = self.encoder.feed_forward(self.x_disor)
-        pred_faker = self.disor.feed_forward(z_faker)
 
-        # self.z_real = tf.random_normal([self.batch_size, self.z_dim]) * 5
-        pred_real = self.disor.feed_forward(self.z_real)
 
-        with tf.name_scope('loss_discriminator'):
-            self.loss_disor_real = -tf.reduce_mean(tf.log(pred_real + self.tiny))
-            self.loss_disor_faker =  -tf.reduce_mean(tf.log(1. - pred_faker + self.tiny))
-            # with tf.control_dependencies([self.loss_disor_faker, self.loss_disor_real]):
-            self.loss_disor = self.loss_disor_faker + self.loss_disor_real
-            tf.summary.scalar('loss_faker', self.loss_disor_faker)
-            tf.summary.scalar('loss_real', self.loss_disor_real)
+def train():
+    x_dim = 784
+    z_dim = 2
+    batch_size = 100
+    n_epochs = 1000
+    learn_rate = 0.001
+    summary_step = 100
 
-        with tf.name_scope('trainer_disor'):
-            optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate)
-            self.trainer_disor = optimizer.minimize(self.loss_disor, var_list=self.disor.vars)
-            # print(len(self.disor.vars))
+    data_path, summary_path, save_path = get_config_path()
 
-    def optimizer_encoder(self):
-        z = self.encoder.feed_forward(self.x_en)
-        pred = self.disor.feed_forward(z)
-        with tf.name_scope('loss_encoder'):
-            self.loss_encoder = -tf.reduce_mean(tf.log(pred + self.tiny))
-            tf.summary.scalar('loss_encoder', self.loss_encoder)
+    x = tf.placeholder(dtype=tf.float32, shape=[batch_size, x_dim], name='x')
+    # y = tf.placeholder(dtype=tf.float32, shape=[batch_size, x_dim], name='y')
+    z_real = tf.placeholder(dtype=tf.float32, shape=[batch_size, z_dim], name='z_real')
+    # z_input = tf.placeholder(dtype=tf.float32, shape=[1, z_dim], name='z_input')
 
-        with tf.name_scope('trainer_encoder'):
-            optimizer = tf.train.AdamOptimizer(learning_rate=self.learn_rate)
-            self.trainer_encoder = optimizer.minimize(self.loss_encoder, var_list=self.encoder.vars)
+    encoder = Encoder()
+    decoder = Decoder()
+    discriminator = Discriminator()
+    sampler = Sampler()
 
-    def train_encoder_decoder(self, input):
-        _, loss = self.sess.run([self.trainer_encoder_decoder, self.loss_encoder_decoder],
-                                {self.x_en_de:input})
-        return loss
+    z = encoder.feed_forward(x)
+    y = decoder.feed_forward(z)
 
-    def train_discriminator(self, input):
-        z_prior = self.sampler(self.batch_size)
-        _, loss_faker, loss_real = self.sess.run(
-            [self.trainer_disor, self.loss_disor_faker, self.loss_disor_real],
-            {self.x_disor:input, self.z_real:z_prior})
-        return loss_faker, loss_real
+    d_real = discriminator.feed_forward(z_real)
+    d_fake = discriminator.feed_forward(z)
 
-    def train_encoder(self, input):
-        _, loss = self.sess.run([self.trainer_encoder, self.loss_encoder],
-                                {self.x_en:input})
-        return loss
+    # auto-encoder loss
+    ae_loss = tf.reduce_mean(tf.square(x - y))
 
-    def save(self, name):
-        save_dir = 'ckpt/'
-        if not os.path.isdir(save_dir):
-            os.makedirs(save_dir)
-        saver = tf.train.Saver(self.vars)
-        saver.save(self.sess, save_dir+name)
+    # discriminator loss
+    dc_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+        labels=tf.ones_like(d_real), logits=d_real))
+    dc_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+        labels=tf.zeros_like(d_fake), logits=d_fake))
+    with tf.control_dependencies([dc_loss_fake, dc_loss_real]):
+        dc_loss = dc_loss_fake + dc_loss_real
 
-    def restore(self, path):
-        saver = tf.train.Saver(self.vars)
-        saver.restore(self.sess, path)
+    # generator loss
+    gen_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+        labels=tf.ones_like(d_fake), logits=d_fake))
 
-    def image_to_latent(self, input):
-        return self.sess.run(self.encoder.feed_forward(input, False))
+    all_variables = tf.trainable_variables()
+    en_var = [var for var in all_variables if 'Encoder' in var.name]
+    de_var = [var for var in all_variables if 'Decoder' in var.name]
+    dis_var = [var for var in all_variables if 'Discriminator' in var.name]
 
-    def image_to_image(self, input):
-        z = self.sess.run(self.encoder.feed_forward(input, False))
-        return self.sess.run(self.decoder.feed_forward(z, False))
+     # optimizers
+    auto_encoder_optimizer = tf.train.AdamOptimizer(learn_rate).minimize(ae_loss)
+    discriminator_optimizer = tf.train.AdamOptimizer(learn_rate).minimize(dc_loss, var_list=dis_var)
+    generator_optimizer = tf.train.AdamOptimizer(learn_rate).minimize(gen_loss, var_list=en_var)
 
-    def latent_to_image(self, z):
-        return self.sess.run(self.decoder.feed_forward(z, False))
+    # reshape images to display them
+    input_images = tf.reshape(x, [-1, 28, 28, 1])
+    reconstruct_images = tf.reshape(y, [-1, 28, 28, 1])
 
+    # tensorboard visualization
+    tf.summary.scalar(name='Auto-encoder Loss', tensor=ae_loss)
+    tf.summary.scalar(name='Discriminator Loss', tensor=dc_loss)
+    tf.summary.scalar(name='Generator Loss', tensor=gen_loss)
+    tf.summary.histogram(name='Encoder Distribution', values=z)
+    tf.summary.histogram(name='Real Distribution', values=z_real)
+    tf.summary.image(name='Input Images', tensor=input_images, max_outputs=10)
+    tf.summary.image(name='Reconstructed Images', tensor=reconstruct_images, max_outputs=10)
+    summary_op = tf.summary.merge_all()
+
+    # counter
+    step = 0
+
+    # data
+    mnist = input_data.read_data_sets(data_path, one_hot=True)
+    n_batches = int(mnist.train.num_examples / batch_size)
+
+    # train the model
+    with tf.Session() as sess:
+        writer = tf.summary.FileWriter(logdir=summary_path, graph=sess.graph)
+        sess.run(tf.global_variables_initializer())
+
+        # training process
+        for epochs in range(n_epochs):
+            for n in range(1, n_batches + 1):
+                z_real_s = sampler(batch_size)
+                batch_x, _ = mnist.train.next_batch(batch_size)
+                sess.run(auto_encoder_optimizer, feed_dict={x: batch_x})
+                sess.run(discriminator_optimizer, feed_dict={x:batch_x, z_real:z_real_s})
+                sess.run(generator_optimizer, feed_dict={x:batch_x})
+                # summary
+                if n % summary_step == 0:
+                    vloss_ae, vloss_dc_f, vloss_dc_r, vloss_gen, summary = sess.run(
+                        [ae_loss, dc_loss_fake, dc_loss_real, gen_loss, summary_op],
+                        feed_dict={x: batch_x, z_real:z_real_s})
+                    writer.add_summary(summary, global_step=step)
+
+                    liner = "Epoch {:3d}/{:d}, loss_en_de {:9f}, " \
+                            "loss_dis_faker {:9f}, loss_dis_real {:9f}, loss_encoder {:9f}"\
+                        .format(epochs, n, vloss_ae, vloss_dc_f, vloss_dc_r, vloss_gen)
+                    print(liner)
+
+                    with open(summary_path + '/log.txt', 'a') as log:
+                        log.write(liner)
+                step += 1
+
+        # save model
+        vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+        saver = tf.train.Saver(var_list=vars)
+        saver.save(sess, save_path=save_path)
 
 if __name__ == '__main__':
-    encoder_layer = [28*28, 1000, 1000]
-    z_dim = 2
-    decoder_layer = [1000, 1000, 28*28]
-    disor_layer = [2, 1000, 1000, 1]
-    num_epochs = 100
-    batch_size = 100
-    learn_rate = 1e-3
-    shape = [batch_size, 28*28]
-
-    sess = tf.Session()
-    aae = AAE(sess)
+    # train()
+    generate_image_grid()

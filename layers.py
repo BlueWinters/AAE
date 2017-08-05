@@ -80,11 +80,9 @@ def calc_bn(input, is_train=True, tiny=1e-6, decay=0.999, name='bn'):
             train_mean = tf.assign(ave_mean, ave_mean*decay + batch_mean*(1-decay))
             train_var = tf.assign(ave_var, ave_var*decay + batch_var*(1-decay))
             with tf.control_dependencies([train_mean, train_var]):
-                # return tf.nn.batch_normalization(input, batch_mean, batch_var, beta, scale, 0.001)
-                a = scale*(input-batch_mean) / tf.sqrt(tiny+batch_var) + beta
+                return tf.nn.batch_normalization(input, batch_mean, batch_var, beta, scale, 0.001)
         else:
-            # return tf.nn.batch_normalization(input, ave_mean, ave_var, beta, scale, 0.001)
-            a = scale*(input-ave_mean) / tf.sqrt(tiny+ave_var) + beta
+            return tf.nn.batch_normalization(input, ave_mean, ave_var, beta, scale, 0.001)
     return a
 
 def calc_dropout(input, is_train=True, p=0.25, name='dropout'):
