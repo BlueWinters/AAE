@@ -5,13 +5,18 @@ import numpy as np
 from encoder import Encoder
 from decoder import Decoder
 from discriminator import Discriminator
-from model import get_config_path
 
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
 from scipy.stats import norm
 from tensorflow.examples.tutorials.mnist import input_data
 
+
+def get_config_path():
+    data_path = './mnist'
+    summary_path = './summary'
+    save_path = 'ckpt/model'
+    return data_path, summary_path, save_path
 
 def generate_image_grid():
     encoder = Encoder()
@@ -139,7 +144,7 @@ def visual_2d():
         saver.restore(sess, save_path=save_path)
 
         mnist = input_data.read_data_sets(data_path, one_hot=True)
-        images, labels = mnist.train.images, mnist.train.labels
+        images, labels = mnist.validation.images, mnist.validation.labels
 
         with tf.name_scope('reconstruction'):
             input = tf.placeholder(tf.float32, [None,784], 'input')
@@ -160,6 +165,6 @@ def visual_2d():
 if __name__ == '__main__':
     # generate_image_grid()
     # generate_reconstruct_image()
-    # visual_2d()
+    visual_2d()
     # explore_latent()
     pass

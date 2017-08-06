@@ -40,26 +40,24 @@ def train():
     d_fake = discriminator.feed_forward(z)
 
     # auto-encoder loss
-    ae_loss = tf.reduce_mean(tf.square(x - y))
+    ae_loss = tf.reduce_mean(tf.reduce_sum(tf.square(x - y),[1]))
 
     # discriminator loss
-    dc_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
-        labels=tf.ones_like(d_real), logits=d_real))
-    dc_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
-        labels=tf.zeros_like(d_fake), logits=d_fake))
+    tiny = 1e-8
+    dc_loss_real = -tf.reduce_mean(tf.log(d_real+tiny))
+    dc_loss_fake = -tf.reduce_mean(tf.log(1.-d_fake+tiny))
     with tf.control_dependencies([dc_loss_fake, dc_loss_real]):
         dc_loss = dc_loss_fake + dc_loss_real
 
     # generator loss
-    gen_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
-        labels=tf.ones_like(d_fake), logits=d_fake))
+    gen_loss = -tf.reduce_mean(tf.log(d_fake+tiny))
 
     all_variables = tf.trainable_variables()
     en_var = [var for var in all_variables if 'Encoder' in var.name]
     de_var = [var for var in all_variables if 'Decoder' in var.name]
     dis_var = [var for var in all_variables if 'Discriminator' in var.name]
 
-     # optimizers
+    # optimizers
     auto_encoder_optimizer = tf.train.AdamOptimizer(learn_rate).minimize(ae_loss)
     discriminator_optimizer = tf.train.AdamOptimizer(learn_rate).minimize(dc_loss, var_list=dis_var)
     generator_optimizer = tf.train.AdamOptimizer(learn_rate).minimize(gen_loss, var_list=en_var)
