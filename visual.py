@@ -9,6 +9,7 @@ from model import get_config_path
 
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
+from scipy.stats import norm
 from tensorflow.examples.tutorials.mnist import input_data
 
 
@@ -20,7 +21,6 @@ def generate_image_grid():
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     data_path, _, save_path = get_config_path()
 
-
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver(vars)
@@ -30,8 +30,8 @@ def generate_image_grid():
             z_holder = tf.placeholder(dtype=tf.float32, shape=[None,2], name='z_holder')
             image = decoder.feed_forward(z_holder, is_train=False)
 
-        x_points = np.arange(-10, 10, 1.5).astype(np.float32)
-        y_points = np.arange(-10, 10, 1.5).astype(np.float32)
+        x_points = np.arange(-10, 10, 0.5).astype(np.float32)
+        y_points = np.arange(-10, 10, 0.5).astype(np.float32)
         nx, ny = len(x_points), len(y_points)
 
         plt.subplot()
@@ -46,6 +46,40 @@ def generate_image_grid():
             ax.set_xticks([])
             ax.set_yticks([])
             ax.set_aspect('auto')
+        plt.show()
+
+def explore_latent():
+    nx, ny = 30, 30
+    space_min, space_max = -40, 40
+    tiny = 1e-8
+    z = np.rollaxis(np.mgrid[space_max:space_min:ny*1j, space_min:space_max:nx*1j], 0, 3)
+    z = np.array([norm.ppf(np.clip(one, tiny, 1 - tiny)) for one in z])
+    z = np.reshape(z, [-1,2])
+
+    encoder = Encoder()
+    decoder = Decoder()
+    discriminator = Discriminator()
+
+    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    data_path, _, save_path = get_config_path()
+
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        saver = tf.train.Saver(vars)
+        saver.restore(sess, save_path=save_path)
+
+        with tf.name_scope('latent_space'):
+            z_holder = tf.placeholder(dtype=tf.float32, shape=[None,2], name='z_holder')
+            image_holder = decoder.feed_forward(z_holder, is_train=False)
+        image = sess.run(image_holder, feed_dict={z_holder:z})
+        image = np.reshape(image, [ny,nx,-1])
+
+        stack_image = np.zeros([ny*28,nx*28])
+        for j in range(ny):
+            for i in range(nx):
+                stack_image[j*28:(j+1)*28, i*28:(i+1)*28] = np.reshape(image[j,i,:], [28,28])
+
+        plt.imshow(stack_image, cmap='gray')
         plt.show()
 
 def generate_reconstruct_image():
@@ -126,4 +160,6 @@ def visual_2d():
 if __name__ == '__main__':
     # generate_image_grid()
     # generate_reconstruct_image()
-    visual_2d()
+    # visual_2d()
+    # explore_latent()
+    pass

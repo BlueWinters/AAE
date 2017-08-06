@@ -36,7 +36,6 @@ class Discriminator(object):
         with tf.variable_scope(self.name) as scope:
             with tf.variable_scope("layer1"):
                 ly.set_fc_vars(in_dim=self.in_dim, out_dim=self.h_dim)
-                ly.set_bn_vars(shape=[1,self.h_dim])
             with tf.variable_scope("layer2"):
                 ly.set_fc_vars(in_dim=self.h_dim, out_dim=self.h_dim)
                 ly.set_bn_vars(shape=[1,self.h_dim])
@@ -49,7 +48,6 @@ class Discriminator(object):
         with tf.variable_scope(self.scope, reuse=True):
             with tf.variable_scope("layer1"):
                 h = ly.calc_fc(input)
-                h = ly.calc_bn(h, is_train)
                 h = ly.calc_relu(h)
             with tf.variable_scope("layer2"):
                 h = ly.calc_fc(h)

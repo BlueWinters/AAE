@@ -56,8 +56,7 @@ class Encoder(object):
                 h = ly.calc_bn(h, is_train)
                 h = ly.calc_relu(h)
             with tf.variable_scope("layer3"):
-                h = ly.calc_fc(h)
-                output = ly.calc_sigmoid(h)
+                output = ly.calc_fc(h)
         return output
 
     def _init_model_v2(self):
