@@ -40,17 +40,19 @@ def train():
     d_fake = discriminator.feed_forward(z)
 
     # auto-encoder loss
-    ae_loss = tf.reduce_mean(tf.reduce_sum(tf.square(x - y),[1]))
+    ae_loss = tf.reduce_mean(tf.square(x - y))
 
     # discriminator loss
-    tiny = 1e-8
-    dc_loss_real = -tf.reduce_mean(tf.log(d_real+tiny))
-    dc_loss_fake = -tf.reduce_mean(tf.log(1.-d_fake+tiny))
+    dc_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+        labels=tf.ones_like(d_real), logits=d_real))
+    dc_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+        labels=tf.zeros_like(d_fake), logits=d_fake))
     with tf.control_dependencies([dc_loss_fake, dc_loss_real]):
         dc_loss = dc_loss_fake + dc_loss_real
 
     # generator loss
-    gen_loss = -tf.reduce_mean(tf.log(d_fake+tiny))
+    gen_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+        labels=tf.ones_like(d_fake), logits=d_fake))
 
     all_variables = tf.trainable_variables()
     en_var = [var for var in all_variables if 'Encoder' in var.name]
