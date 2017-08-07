@@ -1,7 +1,7 @@
 # Adversarial Autoencoder
 
 - Latent Space Exploration
-![unsupervised][https://github.com/BlueWinters/AdversarialAutoencoder/blob/master/manifold.png]
+![unsupervised](https://github.com/BlueWinters/AdversarialAutoencoder/blob/master/manifold.png)
 
 - Reference
 Adversarial Autoencoders([pdf](https://arxiv.org/abs/1511.05644))

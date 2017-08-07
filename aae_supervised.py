@@ -15,6 +15,20 @@ def get_config_path():
     save_path = 'supervised/ckpt/model'
     return data_path, summary_path, save_path
 
+def print_information():
+    vloss_ae, vloss_dc_f, vloss_dc_r, vloss_gen, summary = sess.run(
+        [ae_loss, dc_loss_fake, dc_loss_real, gen_loss, summary_op],
+        feed_dict={x: batch_x, y:batch_y, z_real:z_real_s})
+    writer.add_summary(summary, global_step=step)
+
+    liner = "Epoch {:3d}/{:d}, loss_en_de {:9f}, " \
+            "loss_dis_faker {:9f}, loss_dis_real {:9f}, loss_encoder {:9f}" \
+        .format(epochs, n, vloss_ae, vloss_dc_f, vloss_dc_r, vloss_gen)
+    print(liner)
+
+    with open(summary_path + '/log.txt', 'a') as log:
+        log.write(liner)
+
 def train():
     x_dim = 784
     z_dim = 2
@@ -107,7 +121,7 @@ def train():
                 if n % summary_step == 0:
                     vloss_ae, vloss_dc_f, vloss_dc_r, vloss_gen, summary = sess.run(
                         [ae_loss, dc_loss_fake, dc_loss_real, gen_loss, summary_op],
-                        feed_dict={x: batch_x, z_real:z_real_s})
+                        feed_dict={x: batch_x, y:batch_y, z_real:z_real_s})
                     writer.add_summary(summary, global_step=step)
 
                     liner = "Epoch {:3d}/{:d}, loss_en_de {:9f}, " \
