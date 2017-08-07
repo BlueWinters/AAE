@@ -11,8 +11,8 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 def get_config_path():
     data_path = './mnist'
-    summary_path = './summary'
-    save_path = 'ckpt/model'
+    summary_path = 'unsupervised/summary'
+    save_path = 'unsupervised/ckpt/model'
     return data_path, summary_path, save_path
 
 def train():
@@ -95,24 +95,22 @@ def train():
             for n in range(1, n_batches + 1):
                 z_real_s = sampler(batch_size)
                 batch_x, _ = mnist.train.next_batch(batch_size)
-                sess.run(auto_encoder_optimizer, feed_dict={x: batch_x})
+                sess.run(auto_encoder_optimizer, feed_dict={x:batch_x})
                 sess.run(discriminator_optimizer, feed_dict={x:batch_x, z_real:z_real_s})
                 sess.run(generator_optimizer, feed_dict={x:batch_x})
-                # summary
-                if n % summary_step == 0:
-                    vloss_ae, vloss_dc_f, vloss_dc_r, vloss_gen, summary = sess.run(
-                        [ae_loss, dc_loss_fake, dc_loss_real, gen_loss, summary_op],
-                        feed_dict={x: batch_x, z_real:z_real_s})
-                    writer.add_summary(summary, global_step=step)
+            # summary
+            vloss_ae, vloss_dc_f, vloss_dc_r, vloss_gen, summary = sess.run(
+                [ae_loss, dc_loss_fake, dc_loss_real, gen_loss, summary_op],
+                feed_dict={x: batch_x, z_real:z_real_s})
+            writer.add_summary(summary, global_step=epochs)
 
-                    liner = "Epoch {:3d}/{:d}, loss_en_de {:9f}, " \
-                            "loss_dis_faker {:9f}, loss_dis_real {:9f}, loss_encoder {:9f}"\
-                        .format(epochs, n, vloss_ae, vloss_dc_f, vloss_dc_r, vloss_gen)
-                    print(liner)
+            liner = "Epoch {:3d}/{:d}, loss_en_de {:9f}, " \
+                    "loss_dis_faker {:9f}, loss_dis_real {:9f}, loss_encoder {:9f}" \
+                .format(epochs, n_epochs, vloss_ae, vloss_dc_f, vloss_dc_r, vloss_gen)
+            print(liner)
 
-                    with open(summary_path + '/log.txt', 'a') as log:
-                        log.write(liner)
-                step += 1
+            with open(summary_path + '/log.txt', 'a') as log:
+                log.write(liner)
 
         # save model
         vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
