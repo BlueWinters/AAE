@@ -10,7 +10,7 @@ class Discriminator(object):
         self.name = name
         self.vars = []
 
-        self.type = 'batch_norm'
+        self.type = 'v3'
 
         self._init_model()
 
@@ -25,12 +25,16 @@ class Discriminator(object):
             self._init_model_v1()
         elif self.type == 'dropout':
             self._init_model_v2()
+        elif self.type == 'v3':
+            self._init_model_v3()
 
     def feed_forward(self, input, is_train=True):
         if self.type == 'batch_norm':
             return self.feed_forward_v1(input, is_train)
         elif self.type == 'dropout':
             return self.feed_forward_v2(input, is_train)
+        elif self.type == 'v3':
+            return self.feed_forward_v3(input, is_train)
 
     def _init_model_v1(self):
         with tf.variable_scope(self.name) as scope:
@@ -77,6 +81,30 @@ class Discriminator(object):
             with tf.variable_scope("layer2"):
                 h = ly.calc_fc(h)
                 h = ly.calc_dropout(h, is_train)
+                h = ly.calc_relu(h)
+            with tf.variable_scope("layer3"):
+                h = ly.calc_fc(h)
+                output = ly.calc_sigmoid(h)
+        return output
+
+    def _init_model_v3(self):
+        with tf.variable_scope(self.name) as scope:
+            with tf.variable_scope("layer1"):
+                ly.set_fc_vars(in_dim=self.in_dim, out_dim=self.h_dim)
+            with tf.variable_scope("layer2"):
+                ly.set_fc_vars(in_dim=self.h_dim, out_dim=self.h_dim)
+            with tf.variable_scope("layer3"):
+                ly.set_fc_vars(in_dim=self.h_dim, out_dim=self.out_dim)
+        self.scope = scope
+        self.vars = tf.get_collection(key=tf.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
+
+    def feed_forward_v3(self, input, is_train=True):
+        with tf.variable_scope(self.scope, reuse=True):
+            with tf.variable_scope("layer1"):
+                h = ly.calc_fc(input)
+                h = ly.calc_relu(h)
+            with tf.variable_scope("layer2"):
+                h = ly.calc_fc(h)
                 h = ly.calc_relu(h)
             with tf.variable_scope("layer3"):
                 h = ly.calc_fc(h)
