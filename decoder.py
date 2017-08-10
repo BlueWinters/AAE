@@ -111,6 +111,7 @@ class Decoder(object):
             with tf.variable_scope("layer2"):
                 h = ly.calc_fc(h)
                 h = ly.calc_bn(h, is_train)
+                h = ly.calc_relu(h)
             with tf.variable_scope("layer3"):
                 h = ly.calc_fc(h)
                 output = tf.nn.sigmoid(h)

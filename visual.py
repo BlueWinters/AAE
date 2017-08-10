@@ -13,9 +13,9 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 
 def get_config_path():
-    data_path = './mnist'
-    summary_path = './summary'
-    save_path = 'ckpt/model'
+    data_path = 'mnist'
+    summary_path = 'unsupervised/summary'
+    save_path = 'ckpt/0810/model'
     return data_path, summary_path, save_path
 
 def generate_image_grid():
@@ -35,8 +35,8 @@ def generate_image_grid():
             z_holder = tf.placeholder(dtype=tf.float32, shape=[None,2], name='z_holder')
             image = decoder.feed_forward(z_holder, is_train=False)
 
-        x_points = np.arange(-10, 10, 0.5).astype(np.float32)
-        y_points = np.arange(-10, 10, 0.5).astype(np.float32)
+        x_points = np.arange(-1, 1, 0.1).astype(np.float32)
+        y_points = np.arange(-1, 1, 0.1).astype(np.float32)
         nx, ny = len(x_points), len(y_points)
 
         plt.subplot()
@@ -122,7 +122,7 @@ def generate_reconstruct_image():
                 ax[5+i][j].set_axis_off()
         plt.show()
 
-def visual_2d():
+def visual_2d(set='validation'):
     def get_10color_list():
         color = [[0.0, 0.0, 0.0], [0.0, 0.0, 1.0],
                  [0.0, 0.0, 1.0], [0.0, 1.0, 1.0],
@@ -144,7 +144,10 @@ def visual_2d():
         saver.restore(sess, save_path=save_path)
 
         mnist = input_data.read_data_sets(data_path, one_hot=True)
-        images, labels = mnist.validation.images, mnist.validation.labels
+        if set == 'validation':
+            images, labels = mnist.validation.images, mnist.validation.labels
+        elif set == 'train':
+            images, labels = mnist.train.images, mnist.train.labels
 
         with tf.name_scope('reconstruction'):
             input = tf.placeholder(tf.float32, [None,784], 'input')
@@ -165,6 +168,7 @@ def visual_2d():
 if __name__ == '__main__':
     # generate_image_grid()
     # generate_reconstruct_image()
+    # visual_2d('train')
     visual_2d()
     # explore_latent()
     pass

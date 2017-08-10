@@ -8,7 +8,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 
 mb_size = 32
-z_dim = 10
+z_dim = 2
 X_dim = 28*28
 y_dim = 10
 h_dim = 128
@@ -149,7 +149,7 @@ for n in range(n_epochs):
         _, D_loss_curr = sess.run([D_solver, D_loss], feed_dict={X:batch_x, z:batch_z})
         _, G_loss_curr = sess.run([G_solver, G_loss], feed_dict={X:batch_x})
 
-    loss_list = sess.run([R_loss, D_loss_fake, D_loss_real, G_loss])
+    loss_list = sess.run([R_loss, D_loss_fake, D_loss_real, G_loss], feed_dict={X:batch_x, z:batch_z})
     print('Epoch: {:}/{:}, R_loss: {:9f}, '
           'D_loss_fake: {:9f}, D_loss_fake: {:9f}, G_loss: {:9f}'
           .format(n, n_epochs, loss_list[0], loss_list[1], loss_list[2], loss_list[3]))
@@ -170,7 +170,7 @@ plt.subplot()
 gs = gridspec.GridSpec(nx, ny, hspace=0.05, wspace=0.05)
 for i, g in enumerate(gs):
     sz = np.concatenate(([x_points[int(i / ny)]], [y_points[int(i % nx)]]))
-    sz = np.reshape(z, (1, 2))
+    sz = np.reshape(sz, (1, 2))
     x = sess.run(X_samples, feed_dict={z:sz})
     ax = plt.subplot(g)
     img = np.array(x.tolist()).reshape(28, 28)

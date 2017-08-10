@@ -48,6 +48,12 @@ class Sampler(object):
             z[batch, 1] = r * sin(rad)
         return z
 
+    def sample_grid(self):
+        x_points = np.reshape(np.arange(-10, 10, 1).astype(np.float32), [-1,1])
+        y_points = np.reshape(np.arange(-10, 10, 1).astype(np.float32), [-1,1])
+        point = np.concatenate((x_points,y_points), axis=1)
+        return np.reshape(point, [-1,2])
+
 
 if __name__ == '__main__':
     sampler = Sampler('10gaussian')
