@@ -83,7 +83,6 @@ def calc_bn(input, is_train=True, tiny=1e-6, decay=0.999, name='bn'):
                 return tf.nn.batch_normalization(input, batch_mean, batch_var, beta, scale, 0.001)
         else:
             return tf.nn.batch_normalization(input, ave_mean, ave_var, beta, scale, 0.001)
-    return a
 
 def calc_dropout(input, is_train=True, p=0.25, name='dropout'):
     with tf.name_scope(name):

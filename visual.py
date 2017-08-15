@@ -14,14 +14,14 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 def get_config_path():
     data_path = 'mnist'
-    summary_path = 'unsupervised/summary'
-    save_path = 'ckpt/0810/model'
+    summary_path = 'semi-supervised/summary'
+    save_path = 'semi-supervised/ckpt/model'
     return data_path, summary_path, save_path
 
 def generate_image_grid():
     encoder = Encoder()
     decoder = Decoder()
-    discriminator = Discriminator()
+    discriminator = Discriminator(in_dim=13)
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     data_path, _, save_path = get_config_path()
@@ -166,9 +166,9 @@ def visual_2d(set='validation'):
         plt.show()
 
 if __name__ == '__main__':
-    # generate_image_grid()
+    generate_image_grid()
     # generate_reconstruct_image()
     # visual_2d('train')
-    visual_2d()
+    # visual_2d()
     # explore_latent()
     pass

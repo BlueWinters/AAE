@@ -1,16 +1,16 @@
 
 import tensorflow as tf
+import sampler as spl
 
 from encoder import Encoder
 from decoder import Decoder
 from discriminator import Discriminator
-from sampler import Sampler
 
 from tensorflow.examples.tutorials.mnist import input_data
 
 
 def get_config_path():
-    data_path = '/mnist'
+    data_path = 'mnist'
     summary_path = 'unsupervised/summary'
     save_path = 'unsupervised/ckpt/model'
     return data_path, summary_path, save_path
@@ -36,7 +36,6 @@ def train():
     encoder = Encoder()
     decoder = Decoder()
     discriminator = Discriminator()
-    sampler = Sampler()
 
     z = encoder.feed_forward(x)
     y = decoder.feed_forward(z)
@@ -103,7 +102,7 @@ def train():
         for epochs in range(n_epochs):
             ave_loss_list = [0, 0, 0, 0]
             for n in range(1, n_batches + 1):
-                z_real_s = sampler(batch_size)
+                z_real_s = spl.gaussian(batch_size, z_dim)
                 batch_x, _ = mnist.train.next_batch(batch_size)
                 sess.run(A_solver, feed_dict={x:batch_x})
                 sess.run(D_solver, feed_dict={x:batch_x, z_real:z_real_s})
