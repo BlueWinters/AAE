@@ -1,12 +1,11 @@
 
 import tensorflow as tf
 import sampler as spl
+import mnist_tools as mtl
 
 from encoder import Encoder
 from decoder import Decoder
 from discriminator import Discriminator
-
-from tensorflow.examples.tutorials.mnist import input_data
 
 
 def get_config_path():
@@ -88,10 +87,9 @@ def train():
     summary_op = tf.summary.merge_all()
 
     # data
-    mnist = input_data.read_data_sets(data_path, one_hot=True)
-    n_batches = int(mnist.train.num_examples / batch_size)
+    mnist = mtl.create_supervised_data(data_path)
+    n_batches = int(mnist.num_examples / batch_size)
 
-    sz_grid = sampler.sample_grid()
 
     # train the model
     with tf.Session() as sess:
@@ -103,7 +101,7 @@ def train():
             ave_loss_list = [0, 0, 0, 0]
             for n in range(1, n_batches + 1):
                 z_real_s = spl.gaussian(batch_size, z_dim)
-                batch_x, _ = mnist.train.next_batch(batch_size)
+                batch_x, _ = mnist.next_batch(batch_size)
                 sess.run(A_solver, feed_dict={x:batch_x})
                 sess.run(D_solver, feed_dict={x:batch_x, z_real:z_real_s})
                 sess.run(G_solver, feed_dict={x:batch_x})
@@ -112,16 +110,14 @@ def train():
                                      feed_dict={x:batch_x, z_real:z_real_s})
                 ave_loss(ave_loss_list, loss_list, n_batches)
             # summary
-            summary = sess.run(summary_op, feed_dict={x:batch_x, z_real:z_real_s, z_grid:sz_grid})
+            summary = sess.run(summary_op, feed_dict={x:batch_x, z_real:z_real_s})
             writer.add_summary(summary, global_step=epochs)
 
             liner = "Epoch {:3d}/{:d}, loss_en_de {:9f}, " \
                     "loss_dis_faker {:9f}, loss_dis_real {:9f}, loss_encoder {:9f}" \
-                .format(epochs, n_epochs, ave_loss_list[0], ave_loss_list[1], ave_loss_list[2], ave_loss_list[3])
+                .format(epochs, n_epochs, ave_loss_list[0],
+                        ave_loss_list[1], ave_loss_list[2], ave_loss_list[3])
             print(liner)
-
-            with open(summary_path + '/log.txt', 'a') as log:
-                log.write(liner)
 
         # save model
         vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)

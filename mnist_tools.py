@@ -81,6 +81,16 @@ def create_semi_supervised_data(path, num_label=100):
 
 	return Mnist(x_label, y_label), Mnist(x_unlabel, y_unlabel)
 
+def create_supervised_data(path):
+	images, labels = load_train_images(path)
+	assert images.shape[0] == labels.shape[0]
+
+	images = images.reshape(images.shape[0], 28*28)
+	images = images.astype(np.float32)
+	images = np.multiply(images, 1.0/255.0)
+
+	return Mnist(images, labels)
+
 class Mnist(object):
 	def __init__(self, images, labels):
 		self.images = images
