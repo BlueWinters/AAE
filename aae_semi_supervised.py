@@ -60,7 +60,7 @@ def train():
 
     z_real_concat_l = tf.concat([z_real_l, y_real, tensor_zero], axis=1)
     d_out_real_l = discriminator.feed_forward(z_real_concat_l)
-    z_real_concat_u = tf.concat([z_real_u, y_real, tensor_one], axis=1)
+    z_real_concat_u = tf.concat([z_real_u, tf.zeros_like(y_real), tensor_one], axis=1)
     d_out_real_u = discriminator.feed_forward(z_real_concat_u)
 
     # construct labels for discriminator
