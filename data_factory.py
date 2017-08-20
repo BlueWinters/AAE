@@ -2,29 +2,52 @@
 import gzip as gp
 import numpy as np
 import os as os
+import pickle as pk
 
 
-
-url = 'http://yann.lecun.com/exdb/mnist'
+mnist_url = 'http://yann.lecun.com/exdb/mnist'
 train_images = 'train-images-idx3-ubyte.gz'
 train_labels = 'train-labels-idx1-ubyte.gz'
 test_images = 't10k-images-idx3-ubyte.gz'
 test_labels = 't10k-labels-idx1-ubyte.gz'
 
+cifar10_url = 'https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz'
+train_batch = ('data_batch_1', 'data_batch_2',
+			   'data_batch_3', 'data_batch_4',
+			   'data_batch_1')
+test_batch = ('test_batch')
 
-def load_train_images(path, one_hot=True):
+def load_mnist_train(path, one_hot=True, reshape=True):
 	images = load_mnist_images(os.path.join(path,train_images))
 	labels = load_mnist_labels(os.path.join(path,train_labels), one_hot)
+	if reshape == True:
+		images = normalize_images(images)
 	return images, labels
 
-def load_test_images(path, one_hot=True):
+def load_mnist_test(path, one_hot=True, reshape=True):
 	images = load_mnist_images(os.path.join(path,test_images))
 	labels = load_mnist_labels(os.path.join(path,test_labels), one_hot)
+	if reshape == True:
+		images = normalize_images(images)
 	return images, labels
 
 def read32(bytestream):
 	dt = np.dtype(np.uint32).newbyteorder('>')
 	return np.frombuffer(bytestream.read(4), dtype=dt)[0]
+
+def dense_to_one_hot(labels_dense, num_classes):
+	# Convert class labels from scalars to one-hot vectors
+	num_labels = labels_dense.shape[0]
+	index_offset = np.arange(num_labels) * num_classes
+	labels_one_hot = np.zeros((num_labels, num_classes), dtype=np.float32)
+	labels_one_hot.flat[index_offset + labels_dense.ravel()] = 1
+	return labels_one_hot
+
+def normalize_images(data):
+	data = data.reshape(data.shape[0], 28*28)
+	data = data.astype(np.float32)
+	images = np.multiply(data, 1.0/255.0)
+	return images
 
 def load_mnist_images(file_path):
 	with open(file_path, 'rb') as file:
@@ -43,14 +66,6 @@ def load_mnist_images(file_path):
 			return data
 
 def load_mnist_labels(file_path, one_hot=True, num_classes=10):
-	def dense_to_one_hot(labels_dense, num_classes):
-		# Convert class labels from scalars to one-hot vectors
-		num_labels = labels_dense.shape[0]
-		index_offset = np.arange(num_labels) * num_classes
-		labels_one_hot = np.zeros((num_labels, num_classes))
-		labels_one_hot.flat[index_offset + labels_dense.ravel()] = 1
-		return labels_one_hot
-
 	with open(file_path, 'rb') as file:
 		print('Extracting', file.name)
 		with gp.GzipFile(fileobj=file) as bytestream:
@@ -65,33 +80,63 @@ def load_mnist_labels(file_path, one_hot=True, num_classes=10):
 				return dense_to_one_hot(labels, num_classes)
 			return labels
 
-def create_semi_supervised_data(path, num_label=100):
-	images, labels = load_train_images(path)
+def load_cifar10_train(path):
+	images = np.empty([50000,3072], dtype=np.float32)
+	labels = np.empty([50000,10], dtype=np.uint8)
+
+	for n in range(len(train_batch)):
+		with open(path+'/'+train_batch[n], 'rb') as file:
+			dict = pk.load(file, encoding='bytes')
+			images[n*10000:(n+1)*10000, :] = np.multiply(dict[b'data'], 1.0/255.0)
+			# Labels: list-->array
+			dense_labels = np.array(dict[b'labels'])
+			labels[n*10000:(n+1)*10000, :] = dense_to_one_hot(dense_labels, 10)
+
+	return images, labels
+
+def load_cifar10_test(path):
+	images = np.empty([10000,3072], dtype=np.float32)
+	labels = np.empty([10000,10], dtype=np.uint8)
+
+	with open(path+'/'+test_batch[0], 'rb') as file:
+		dict = pk.load(file, encoding='bytes')
+		images[:,:] = np.multiply(dict[b'data'], 1.0/255.0)
+		# Labels: list-->array
+		dense_labels = np.array(dict[b'labels'])
+		labels[:,:] = dense_to_one_hot(dense_labels, 10)
+
+	return images, labels
+
+def create_semi_supervised_data(path, data='mnist', num_label=100):
+	if data == 'mnist':
+		images, labels = load_mnist_train(path)
+	elif data == 'cifar10':
+		images, labels = load_cifar10_train(path)
+	else:
+		raise NotImplementedError
+
 	assert images.shape[0] == labels.shape[0]
 	assert images.shape[0] >= num_label
-
-	images = images.reshape(images.shape[0], 28*28)
-	images = images.astype(np.float32)
-	images = np.multiply(images, 1.0/255.0)
 
 	x_label = images[:num_label]
 	x_unlabel = images[num_label:]
 	y_label = labels[:num_label]
 	y_unlabel = labels[num_label:]
 
-	return Mnist(x_label, y_label), Mnist(x_unlabel, y_unlabel)
+	return Dataset(x_label, y_label), Dataset(x_unlabel, y_unlabel)
 
-def create_supervised_data(path):
-	images, labels = load_train_images(path)
+def create_supervised_data(path, data='mnist'):
+	if data == 'mnist':
+		images, labels = load_mnist_train(path)
+	elif data == 'cifar10':
+		images, labels = load_cifar10_train(path)
+	else:
+		raise NotImplementedError
+
 	assert images.shape[0] == labels.shape[0]
+	return Dataset(images, labels)
 
-	images = images.reshape(images.shape[0], 28*28)
-	images = images.astype(np.float32)
-	images = np.multiply(images, 1.0/255.0)
-
-	return Mnist(images, labels)
-
-class Mnist(object):
+class Dataset(object):
 	def __init__(self, images, labels):
 		self.images = images
 		self.labels = labels
@@ -137,6 +182,7 @@ class Mnist(object):
 			return self.images[start:end], self.labels[start:end]
 
 
-
 if __name__ == '__main__':
-	sup, unsup = create_semi_supervised_data('mnist')
+	# mnist_l, mnist_u = create_semi_supervised_data('mnist')
+	load_cifar10_train('cifar10')
+	t = 1

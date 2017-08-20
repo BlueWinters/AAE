@@ -1,7 +1,7 @@
 
 import tensorflow as tf
 import sampler as spl
-import mnist_tools as mtl
+import datafactory as df
 
 from encoder import Encoder
 from decoder import Decoder
@@ -87,7 +87,7 @@ def train():
     summary_op = tf.summary.merge_all()
 
     # data
-    mnist = mtl.create_supervised_data(data_path)
+    mnist = df.create_supervised_data(data_path)
     n_batches = int(mnist.num_examples / batch_size)
 
 
