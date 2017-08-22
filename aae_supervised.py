@@ -1,12 +1,12 @@
 
 import tensorflow as tf
 import sampler as spl
+import datafactory as df
 
 from encoder import Encoder
 from decoder import Decoder
 from discriminator import Discriminator
 
-from tensorflow.examples.tutorials.mnist import input_data
 
 
 def get_config_path():
@@ -91,7 +91,7 @@ def train():
     summary_op = tf.summary.merge_all()
 
     # data
-    mnist = input_data.read_data_sets(data_path, one_hot=True)
+    mnist = df.create_supervised_data(data_path)
     n_batches = int(mnist.train.num_examples/batch_size)
 
     # train the model
