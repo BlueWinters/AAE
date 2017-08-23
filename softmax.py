@@ -25,6 +25,7 @@ def train():
     n_epochs = 100
     learn_rate = 0.001
     batch_size = 100
+    tiny = 1e-6
 
     x = tf.placeholder(dtype=tf.float32, shape=[None,x_dim], name='x')
     y = tf.placeholder(dtype=tf.float32, shape=[None,y_dim], name='y')
@@ -45,7 +46,9 @@ def train():
     # get features
     z = encoder.feed_forward(x)
     pred = tf.nn.softmax(tf.matmul(z, W) + b)
-    loss = tf.reduce_mean(-tf.reduce_sum(y*tf.log(pred)))
+    loss = tf.reduce_mean(-tf.reduce_sum(y*tf.log(pred+tiny), reduction_indices=1))
+    true_pred = tf.equal(tf.argmax(pred,1), tf.argmax(y,1))
+    accuracy = tf.reduce_mean(tf.cast(true_pred, tf.float32))
 
     optimizer = tf.train.AdamOptimizer(learn_rate)
     solver = optimizer.minimize(loss, var_list=vars)
@@ -54,8 +57,8 @@ def train():
     summary_op = tf.summary.merge_all()
 
     data_path, summary_path, save_path, model_path = get_config_path()
-    mnist = df.create_supervised_data(data_path)
-    n_batches = int(mnist.num_examples/batch_size)
+    train, validation = df.create_supervised_data(data_path, validation=True)
+    n_batches = int(train.num_examples/batch_size)
 
     # train the model
     with tf.Session() as sess:
@@ -67,13 +70,17 @@ def train():
 
         # training process
         for epochs in range(n_epochs):
+            ave_loss = 0
             for n in range(1, n_batches+1):
-                batch_x, batch_y = mnist.next_batch(batch_size)
+                batch_x, batch_y = train.next_batch(batch_size)
                 epochs_loss, _ = sess.run([loss,solver], feed_dict={x:batch_x, y:batch_y})
                 ave_loss += epochs_loss/n_batches
             summary = sess.run(summary_op, feed_dict={x:batch_x, y:batch_y})
+            val_acc = sess.run(accuracy, feed_dict={x:validation.images, y:validation.labels})
+            train_acc = sess.run(accuracy, feed_dict={x:train.images, y:train.labels})
             writer.add_summary(summary, global_step=epochs)
-            print("Epoch {:3d}/{:d}, loss {:9f}".format(epochs, n_epochs, ave_loss))
+            print("Epoch {:3d}/{:d}, loss {:9f}, validation {:9f}, train {:9f}"
+                  .format(epochs, n_epochs, ave_loss, val_acc, train_acc))
 
         saver = tf.train.Saver(var_list=vars)
         saver.save(sess, save_path=save_path)
