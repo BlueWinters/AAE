@@ -125,7 +125,7 @@ def create_semi_supervised_data(path, data='mnist', num_label=100):
 
 	return Dataset(x_label, y_label), Dataset(x_unlabel, y_unlabel)
 
-def create_supervised_data(path, data='mnist'):
+def create_supervised_data(path, data='mnist', validation=False):
 	if data == 'mnist':
 		images, labels = load_mnist_train(path)
 	elif data == 'cifar10':
@@ -133,8 +133,14 @@ def create_supervised_data(path, data='mnist'):
 	else:
 		raise NotImplementedError
 
-	assert images.shape[0] == labels.shape[0]
-	return Dataset(images, labels)
+	if validation == False:
+		return Dataset(images, labels)
+	else:
+		tr_img = images[:50000]
+		tr_lab = labels[:50000]
+		ts_img = images[50000:]
+		ts_lab = labels[50000:]
+		return Dataset(tr_img,tr_lab), Dataset(ts_img,ts_lab)
 
 class Dataset(object):
 	def __init__(self, images, labels):
