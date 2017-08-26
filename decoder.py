@@ -116,3 +116,31 @@ class Decoder(object):
                 h = ly.calc_fc(h)
                 output = tf.nn.sigmoid(h)
         return output
+
+    def _init_conv_model(self, dim_list):
+        # dim_list = [3, 16, 16, 32]
+        with tf.variable_scope(self.name) as scope:
+            with tf.variable_scope('layer1'):
+                ly.set_conv_vars(dim_list[0], 3, 3, dim_list[1])
+                ly.set_conv_bn_vars(shape=[1,dim_list[1]])
+            with tf.variable_scope('layer2'):
+                ly.set_conv_vars(dim_list[1], 3, 3, dim_list[2])
+                ly.set_conv_bn_vars(shape=[1,dim_list[2]])
+            with tf.variable_scope('layer3'):
+                ly.set_conv_vars(dim_list[2], 3, 3, dim_list[3])
+        self.scope = scope
+        self.vars = tf.get_collection(key=tf.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
+
+    def conv_feed_forward(self, input, is_train=True):
+        with tf.variable_scope(self.name, reuse=True):
+            with tf.variable_scope('layer1'):
+                h = ly.calc_conv(input)
+                h = ly.calc_bn(h)
+                h = ly.calc_relu(h)
+            with tf.variable_scope('layer2'):
+                h = ly.calc_conv(h)
+                h = ly.calc_bn(h)
+                h = ly.calc_relu(h)
+            with tf.variable_scope('layer3'):
+                output = ly.calc_conv(h)
+        return output

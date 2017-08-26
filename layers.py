@@ -44,7 +44,23 @@ def set_fc_vars(in_dim, out_dim, stddev=1.):
     b = tf.get_variable(name='b', shape=[out_dim], dtype=tf.float32,
                         initializer=tf.constant_initializer(0))
 
+def set_conv_vars(in_dim, k_h, k_w, out_dim, stddev=1.):
+    k = tf.get_variable(name='filter', shape=[k_h, k_w, in_dim, out_dim], dtype=tf.float32,
+                        initializer=tf.random_normal_initializer(stddev=1.0))
+    b = tf.get_variable(name='bias', shape=[out_dim], dtype=tf.float32,
+                        initializer=tf.constant_initializer(0))
+
 def set_bn_vars(shape):
+    scale = tf.get_variable('scale', [shape[-1]], dtype=tf.float32,
+                                initializer=tf.constant_initializer(1))
+    beta = tf.get_variable('beta', [shape[-1]], dtype=tf.float32,
+                           initializer=tf.constant_initializer(0))
+    ave_mean = tf.get_variable('ave_mean', shape[-1], trainable=False,
+                               initializer=tf.constant_initializer(0))
+    ave_var = tf.get_variable('ave_var', shape[-1], trainable=False,
+                              initializer=tf.constant_initializer(1))
+
+def set_conv_bn_vars(shape):
     scale = tf.get_variable('scale', [shape[-1]], dtype=tf.float32,
                                 initializer=tf.constant_initializer(1))
     beta = tf.get_variable('beta', [shape[-1]], dtype=tf.float32,
@@ -59,6 +75,28 @@ def calc_fc(input, name='fc'):
         W = tf.get_variable('W')
         b = tf.get_variable('b')
         return tf.matmul(input, W) + b
+
+def calc_conv(input, name='conv'):
+    with tf.name_scope(name):
+        k = tf.get_variable('filter')
+        b = tf.get_variable('bias')
+        return tf.nn.conv2d(input, k, [1,1,1,1], padding='VALID') + b
+
+def calc_conv_bn(input, is_train=True, tiny=1e-6, decay=0.999, name='bn'):
+    with tf.name_scope(name):
+        scale = tf.get_variable('scale')
+        beta = tf.get_variable('beta')
+        ave_mean = tf.get_variable('ave_mean')
+        ave_var = tf.get_variable('ave_var')
+
+        if is_train:
+            batch_mean, batch_var = tf.nn.moments(input, [0,1,2])
+            train_mean = tf.assign(ave_mean, ave_mean*decay + batch_mean*(1-decay))
+            train_var = tf.assign(ave_var, ave_var*decay + batch_var*(1-decay))
+            with tf.control_dependencies([train_mean, train_var]):
+                return tf.nn.batch_normalization(input, batch_mean, batch_var, beta, scale, 0.001)
+        else:
+            return tf.nn.batch_normalization(input, ave_mean, ave_var, beta, scale, 0.001)
 
 def calc_relu(input, name='relu'):
     with tf.name_scope(name):
