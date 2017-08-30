@@ -14,14 +14,14 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 def get_config_path():
     data_path = 'mnist'
-    summary_path = 'semi-supervised/summary'
-    save_path = 'semi-supervised/ckpt/model'
+    summary_path = 'unsupervised/mix-gaussian'
+    save_path = 'unsupervised/mix-gaussian'
     return data_path, summary_path, save_path
 
 def generate_image_grid():
     encoder = Encoder()
     decoder = Decoder()
-    discriminator = Discriminator(in_dim=13)
+    discriminator = Discriminator(in_dim=2)
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     data_path, _, save_path = get_config_path()
@@ -29,7 +29,7 @@ def generate_image_grid():
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver(vars)
-        saver.restore(sess, save_path=save_path)
+        saver.restore(sess, save_path=save_path+'/model')
 
         with tf.name_scope('latent_space'):
             z_holder = tf.placeholder(dtype=tf.float32, shape=[None,2], name='z_holder')
@@ -63,7 +63,7 @@ def explore_latent():
 
     encoder = Encoder()
     decoder = Decoder()
-    discriminator = Discriminator()
+    discriminator = Discriminator(out_dim=4)
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     data_path, _, save_path = get_config_path()
@@ -86,6 +86,7 @@ def explore_latent():
 
         plt.imshow(stack_image, cmap='gray')
         plt.show()
+        plt.savefig(save_path+'/manifold.png')
 
 def generate_reconstruct_image():
     encoder = Encoder()
@@ -125,15 +126,15 @@ def generate_reconstruct_image():
 def visual_2d(set='validation'):
     def get_10color_list():
         color = [[0.0, 0.0, 0.0], [0.0, 0.0, 1.0],
-                 [0.0, 0.0, 1.0], [0.0, 1.0, 1.0],
+                 [0.0, 1.0, 0.0], [0.0, 1.0, 1.0],
                  [1.0, 0.0, 0.0], [1.0, 0.0, 1.0],
                  [1.0, 1.0, 0.0], [1.0, 1.0, 0.5], # [1,1,1] --> white
-                 [0.5, 1.0, 1.0], [1.0, 0.5, 1.0]] # last three are chosen randomly
+                 [0.5, 1.0, 0.5], [1.0, 0.5, 1.0]] # last three are chosen randomly
         return color
     #
     encoder = Encoder()
     decoder = Decoder()
-    discriminator = Discriminator()
+    discriminator = Discriminator(in_dim=2)
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     data_path, _, save_path = get_config_path()
@@ -141,7 +142,7 @@ def visual_2d(set='validation'):
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver(vars)
-        saver.restore(sess, save_path=save_path)
+        saver.restore(sess, save_path=save_path+'/model')
 
         mnist = input_data.read_data_sets(data_path, one_hot=True)
         if set == 'validation':
@@ -164,11 +165,12 @@ def visual_2d(set='validation'):
             y = point[:,1]
             plt.scatter(x, y, color=color_list[n], edgecolors='face')
         plt.show()
+        # plt.savefig(save_path+'/visual2d.png')
 
 if __name__ == '__main__':
-    generate_image_grid()
+    # generate_image_grid()
     # generate_reconstruct_image()
     # visual_2d('train')
-    # visual_2d()
+    visual_2d()
     # explore_latent()
     pass

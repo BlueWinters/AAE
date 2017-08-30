@@ -10,8 +10,8 @@ from discriminator import Discriminator
 
 def get_config_path():
     data_path = 'mnist'
-    summary_path = 'unsupervised/summary'
-    save_path = 'unsupervised/ckpt/model'
+    summary_path = 'unsupervised/mix-gaussian'
+    save_path = 'unsupervised/mix-gaussian'
     return data_path, summary_path, save_path
 
 def ave_loss(ave_lost_list, step_loss_list, div):
@@ -100,7 +100,7 @@ def train():
         for epochs in range(n_epochs):
             ave_loss_list = [0, 0, 0, 0]
             for n in range(1, n_batches + 1):
-                z_real_s = spl.gaussian(batch_size, z_dim)
+                z_real_s = spl.gaussian_mixture(batch_size, z_dim)
                 batch_x, _ = mnist.next_batch(batch_size)
                 sess.run(A_solver, feed_dict={x:batch_x})
                 sess.run(D_solver, feed_dict={x:batch_x, z_real:z_real_s})
@@ -122,7 +122,7 @@ def train():
         # save model
         vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
         saver = tf.train.Saver(var_list=vars)
-        saver.save(sess, save_path=save_path)
+        saver.save(sess, save_path=save_path+'/model')
 
 if __name__ == '__main__':
     train()

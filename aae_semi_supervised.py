@@ -11,8 +11,8 @@ from discriminator import Discriminator
 
 def get_config_path():
     data_path = 'mnist'
-    summary_path = 'semi-supervised/summary'
-    save_path = 'semi-supervised/ckpt/model'
+    summary_path = 'semi-supervised/mix-gaussian'
+    save_path = 'semi-supervised/mix-gaussian'
     return data_path, summary_path, save_path
 
 def ave_loss(ave_lost_list, step_loss_list, div):
@@ -158,13 +158,10 @@ def train():
                         ave_loss_list[6])
             print(liner)
 
-            with open(summary_path + '/log.txt', 'a') as log:
-                log.write(liner)
-
         # save model
         vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
         saver = tf.train.Saver(var_list=vars)
-        saver.save(sess, save_path=save_path)
+        saver.save(sess, save_path=save_path+'/model_v1')
 
 if __name__ == '__main__':
     train()

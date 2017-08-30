@@ -139,6 +139,6 @@ class Encoder(object):
                 h = ly.calc_conv(h)
                 h = ly.calc_bn(h)
                 h = ly.calc_relu(h)
-            with tf.variable('layer3'):
+            with tf.variable_scope('layer3'):
                 output = ly.calc_conv(h)
         return output

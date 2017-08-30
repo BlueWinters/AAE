@@ -11,13 +11,13 @@ def get_config_path():
     data_path = 'mnist'
     summary_path = 'softmax/summary'
     save_path = 'softmax/ckpt/model'
-    model_path = 'semi-supervised/ckpt/model'
+    model_path = 'unsupervised/ckpt/gaussian'
     return data_path, summary_path, save_path, model_path
 
 def train_on_encoder():
     encoder = Encoder()
     decoder = Decoder()
-    discriminator = Discriminator(in_dim=13)
+    discriminator = Discriminator(in_dim=2)
 
     x_dim = 784
     z_dim = 2
@@ -145,4 +145,4 @@ def train_on_src():
 
 if __name__ == '__main__':
     train_on_encoder()
-    train_on_src()
+    # train_on_src()

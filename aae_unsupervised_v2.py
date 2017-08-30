@@ -11,7 +11,7 @@ from discriminator import Discriminator
 def get_config_path():
     data_path = 'mnist'
     summary_path = 'unsupervised/summary'
-    save_path = 'unsupervised/ckpt/model'
+    save_path = 'unsupervised/ckpt2/model'
     return data_path, summary_path, save_path
 
 def ave_loss(ave_lost_list, step_loss_list, div):
@@ -34,7 +34,7 @@ def train():
 
     encoder = Encoder()
     decoder = Decoder()
-    discriminator = Discriminator(in_dim=4)
+    discriminator = Discriminator(out_dim=10)
 
     z = encoder.feed_forward(x)
     y = decoder.feed_forward(z)
@@ -45,8 +45,10 @@ def train():
     # auto-encoder loss
     A_loss = tf.reduce_mean(tf.square(x - y))
     # discriminator loss
-    tensor_one = tf.ones(shape=[batch_size, 2])
-    tensor_zero = tf.zeros(shape=[batch_size, 2])
+    # tensor_one = tf.ones(shape=[batch_size, 2])
+    # tensor_one = tf.random_uniform(shape=[batch_size,2], minval=0, maxval=1)
+    tensor_one = tf.random_normal(shape=[batch_size,5], mean=0.0, stddev=1.0)
+    tensor_zero = tf.zeros(shape=[batch_size, 5])
     labels_real = tf.concat([tensor_one, tensor_zero], axis=1)
     labels_fake = tf.concat([tensor_zero, tensor_one], axis=1)
     D_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
