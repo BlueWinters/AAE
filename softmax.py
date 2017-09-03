@@ -7,25 +7,30 @@ from decoder import Decoder
 from discriminator import Discriminator
 
 
+# global config
+data = 'cifar10'
+input_dim = 3072
+prior = 'mix-gaussian'
+
+
 def get_config_path():
-    data_path = 'mnist'
-    summary_path = 'softmax/summary'
-    save_path = 'softmax/ckpt/model'
-    model_path = 'unsupervised/ckpt/gaussian'
-    return data_path, summary_path, save_path, model_path
+    data_path = 'dataset/{}'.format(data)
+    summary_path = 'semi-supervised/{}/{}'.format(data,prior)
+    model_path = 'semi-supervised/{}/{}'.format(data,prior)
+    return data_path, summary_path, model_path
 
 def train_on_encoder():
-    encoder = Encoder()
-    decoder = Decoder()
-    discriminator = Discriminator(in_dim=2)
-
-    x_dim = 784
+    x_dim = input_dim
     z_dim = 2
     y_dim = 10
     n_epochs = 100
     learn_rate = 0.001
     batch_size = 100
     tiny = 1e-6
+
+    encoder = Encoder(in_dim=x_dim, h_dim=1000, out_dim=z_dim)
+    decoder = Decoder(in_dim=z_dim, h_dim=1000, out_dim=x_dim)
+    discriminator = Discriminator(in_dim=13, h_dim=1000, out_dim=2)
 
     x = tf.placeholder(dtype=tf.float32, shape=[None,x_dim], name='x')
     y = tf.placeholder(dtype=tf.float32, shape=[None,y_dim], name='y')
@@ -53,11 +58,8 @@ def train_on_encoder():
     optimizer = tf.train.AdamOptimizer(learn_rate)
     solver = optimizer.minimize(loss, var_list=vars)
 
-    tf.summary.scalar(name='softmax loss', tensor=loss)
-    summary_op = tf.summary.merge_all()
-
-    data_path, summary_path, save_path, model_path = get_config_path()
-    train, validation = df.create_supervised_data(data_path, validation=True)
+    data_path, summary_path, model_path = get_config_path()
+    train, validation = df.create_supervised_data(data_path, data, validation=True)
     n_batches = int(train.num_examples/batch_size)
 
     # train the model
@@ -65,7 +67,7 @@ def train_on_encoder():
         writer = tf.summary.FileWriter(logdir=summary_path, graph=sess.graph)
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver(model_var)
-        saver.restore(sess, save_path=model_path)
+        saver.restore(sess, save_path=model_path+'/model_v1_10000')
         ave_loss = 0
 
         # training process
@@ -75,27 +77,25 @@ def train_on_encoder():
                 batch_x, batch_y = train.next_batch(batch_size)
                 epochs_loss, _ = sess.run([loss,solver], feed_dict={x:batch_x, y:batch_y})
                 ave_loss += epochs_loss/n_batches
-            summary = sess.run(summary_op, feed_dict={x:batch_x, y:batch_y})
             val_acc = sess.run(accuracy, feed_dict={x:validation.images, y:validation.labels})
             train_acc = sess.run(accuracy, feed_dict={x:train.images, y:train.labels})
-            writer.add_summary(summary, global_step=epochs)
             print("Epoch {:3d}/{:d}, loss {:9f}, validation {:9f}, train {:9f}"
                   .format(epochs, n_epochs, ave_loss, val_acc, train_acc))
 
-        saver = tf.train.Saver(var_list=vars)
-        saver.save(sess, save_path=save_path)
+        # saver = tf.train.Saver(var_list=vars)
+        # saver.save(sess, save_path=save_path+'/model')
 
 def get_config_path_src():
-    data_path = 'mnist'
+    data_path = 'cifar10'
     summary_path = 'softmax/src'
     save_path = 'softmax/src'
     return data_path, summary_path, save_path
 
 def train_on_src():
-    x_dim = 784
+    x_dim = 3072
     y_dim = 10
     n_epochs = 100
-    learn_rate = 0.001
+    learn_rate = 0.0001
     batch_size = 100
     tiny = 1e-6
 
@@ -120,7 +120,7 @@ def train_on_src():
     summary_op = tf.summary.merge_all()
 
     data_path, summary_path, _ = get_config_path_src()
-    train, validation = df.create_supervised_data(data_path, validation=True)
+    train, validation = df.create_supervised_data(data_path, 'cifar10', validation=True)
     n_batches = int(train.num_examples/batch_size)
 
     # train the model

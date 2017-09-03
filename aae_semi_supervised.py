@@ -8,11 +8,16 @@ from decoder import Decoder
 from discriminator import Discriminator
 
 
+# global config
+data = 'cifar10'
+input_dim = 3072
+prior = 'mix-gaussian'
+
 
 def get_config_path():
-    data_path = 'mnist'
-    summary_path = 'semi-supervised/mix-gaussian'
-    save_path = 'semi-supervised/mix-gaussian'
+    data_path = 'dataset/{}'.format(data)
+    summary_path = 'semi-supervised/{}/{}'.format(data,prior)
+    save_path = 'semi-supervised/{}/{}'.format(data,prior)
     return data_path, summary_path, save_path
 
 def ave_loss(ave_lost_list, step_loss_list, div):
@@ -21,16 +26,16 @@ def ave_loss(ave_lost_list, step_loss_list, div):
         ave_lost_list[n] += step_loss_list[n] / div
 
 def train():
-    x_dim = 784
+    x_dim = input_dim
     y_dim = 10
     z_dim = 2
     batch_size = 100 # for both supervised and unsupervised
-    n_epochs = 100
-    learn_rate = 0.0001
+    n_super = 1000 # supervised samples
+    n_epochs = 200
+    learn_rate = 0.001
 
     data_path, summary_path, save_path = get_config_path()
 
-    # x = tf.placeholder(dtype=tf.float32, shape=[None, x_dim], name='x')
     x_l = tf.placeholder(dtype=tf.float32, shape=[None, x_dim], name='x_l')
     x_u = tf.placeholder(dtype=tf.float32, shape=[None, x_dim], name='x_u')
     z_real_l = tf.placeholder(dtype=tf.float32, shape=[None, z_dim], name='z_real_l')
@@ -41,16 +46,16 @@ def train():
     tensor_one = tf.ones(shape=[batch_size, 1])
     tensor_zero = tf.zeros(shape=[batch_size, 1])
 
-    encoder = Encoder()
-    decoder = Decoder()
-    discriminator = Discriminator(in_dim=13)
+    encoder = Encoder(in_dim=x_dim, h_dim=1000, out_dim=2)
+    decoder = Decoder(in_dim=2, h_dim=1000, out_dim=x_dim)
+    discriminator = Discriminator(in_dim=13, h_dim=1000, out_dim=2)
 
     # auto-encoder loss
     z_fake_l = encoder.feed_forward(x_l)
     z_fake_u = encoder.feed_forward(x_u)
     x_hat_l = decoder.feed_forward(z_fake_l)
     x_hat_u = decoder.feed_forward(z_fake_u)
-    A_loss = tf.reduce_mean(tf.square(x_l-x_hat_l)+tf.square(x_u-x_hat_u))
+    A_loss = tf.reduce_mean(tf.square(x_l-x_hat_l))+tf.reduce_mean(tf.square(x_u-x_hat_u))
 
     # discriminator loss
     z_fake_concat_l = tf.concat([z_fake_l, y_fake, tensor_zero], axis=1)
@@ -96,25 +101,15 @@ def train():
     D_solver = optimizer.minimize(D_loss, var_list=dis_var)
     G_solver = optimizer.minimize(G_loss, var_list=en_var)
 
-    # reshape images to display them
-    S_input_l = tf.reshape(x_l, [-1, 28, 28, 1])
-    S_rec_l = tf.reshape(x_hat_l, [-1, 28, 28, 1])
-    S_input_u = tf.reshape(x_u, [-1, 28, 28, 1])
-    S_rec_u = tf.reshape(x_hat_u, [-1, 28, 28, 1])
-
     # tensorboard visualization
     tf.summary.scalar(name='Auto-encoder Loss', tensor=A_loss)
     tf.summary.scalar(name='Discriminator Loss', tensor=D_loss)
     tf.summary.scalar(name='Generator Loss', tensor=G_loss)
-    tf.summary.image(name='Input Labeled', tensor=S_input_l, max_outputs=10)
-    tf.summary.image(name='R-Input Labeled', tensor=S_rec_l, max_outputs=10)
-    tf.summary.image(name='Input UnLabeled', tensor=S_input_u, max_outputs=10)
-    tf.summary.image(name='R-Input UnLabeled', tensor=S_rec_u, max_outputs=10)
     summary_op = tf.summary.merge_all()
 
     # data
-    mnist_l, mnist_u = df.create_semi_supervised_data(data_path)
-    n_batches = int(mnist_u.num_examples/batch_size)
+    data_l, data_u = df.create_semi_supervised_data(data_path, data, n_super)
+    n_batches = int(data_u.num_examples/batch_size)
 
     # train the model
     with tf.Session() as sess:
@@ -125,8 +120,8 @@ def train():
         for epochs in range(n_epochs):
             ave_loss_list = [0, 0, 0, 0, 0, 0, 0]
             for n in range(n_batches+1):
-                batch_x, batch_y = mnist_u.next_batch(batch_size)
-                batch_x_u, _ = mnist_l.next_batch(batch_size)
+                batch_x, batch_y = data_u.next_batch(batch_size)
+                batch_x_u, _ = data_l.next_batch(batch_size)
                 s_z_real_l = spl.supervised_gaussian_mixture(batch_size, batch_y)
                 s_z_real_u = spl.gaussian_mixture(batch_size)
                 ##
@@ -145,10 +140,10 @@ def train():
                                                 z_real_l:s_z_real_l, z_real_u:s_z_real_u})
                 ave_loss(ave_loss_list, loss_list, n_batches)
             # summary
-            summary = sess.run(summary_op, feed_dict={x_l:batch_x, x_u:batch_x_u,
-                                                      y_real:batch_y, y_fake:batch_y,
-                                                      z_real_l:s_z_real_l, z_real_u:s_z_real_u})
-            writer.add_summary(summary, global_step=epochs)
+            # summary = sess.run(summary_op, feed_dict={x_l:batch_x, x_u:batch_x_u,
+            #                                           y_real:batch_y, y_fake:batch_y,
+            #                                           z_real_l:s_z_real_l, z_real_u:s_z_real_u})
+            # writer.add_summary(summary, global_step=epochs)
 
             liner = "Epoch {:3d}/{:d}, loss_en_de {:9f}, loss_dis {:9f}" \
                     "(fake_l {:9f}, fake_u {:9f}, real_l {:9f}, real_u{:9f}), " \
@@ -161,7 +156,9 @@ def train():
         # save model
         vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
         saver = tf.train.Saver(var_list=vars)
-        saver.save(sess, save_path=save_path+'/model_v1')
+        saver.save(sess, save_path=save_path+'/model_v1_1000')
+
+
 
 if __name__ == '__main__':
     train()

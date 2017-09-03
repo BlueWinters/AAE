@@ -1,6 +1,7 @@
 
 import tensorflow as tf
 import numpy as np
+import datafactory as df
 
 from encoder import Encoder
 from decoder import Decoder
@@ -12,16 +13,22 @@ from scipy.stats import norm
 from tensorflow.examples.tutorials.mnist import input_data
 
 
+
+data = 'cifar10'
+input_dim = 3072
+prior = 'mix-gaussian'
+
+
 def get_config_path():
-    data_path = 'mnist'
-    summary_path = 'unsupervised/mix-gaussian'
-    save_path = 'unsupervised/mix-gaussian'
+    data_path = 'dataset/{}'.format(data)
+    summary_path = 'semi-supervised/{}/{}'.format(data,prior)
+    save_path = 'semi-supervised/{}/{}'.format(data,prior)
     return data_path, summary_path, save_path
 
 def generate_image_grid():
     encoder = Encoder()
-    decoder = Decoder()
-    discriminator = Discriminator(in_dim=2)
+    decoder = Decoder(in_dim=13)
+    discriminator = Discriminator()
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     data_path, _, save_path = get_config_path()
@@ -29,7 +36,7 @@ def generate_image_grid():
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver(vars)
-        saver.restore(sess, save_path=save_path+'/model')
+        saver.restore(sess, save_path=save_path+'/model_v0')
 
         with tf.name_scope('latent_space'):
             z_holder = tf.placeholder(dtype=tf.float32, shape=[None,2], name='z_holder')
@@ -132,9 +139,10 @@ def visual_2d(set='validation'):
                  [0.5, 1.0, 0.5], [1.0, 0.5, 1.0]] # last three are chosen randomly
         return color
     #
-    encoder = Encoder()
-    decoder = Decoder()
-    discriminator = Discriminator(in_dim=2)
+    x_dim = 3072
+    encoder = Encoder(in_dim=x_dim, h_dim=1000, out_dim=2)
+    decoder = Decoder(in_dim=2, h_dim=1000, out_dim=x_dim)
+    discriminator = Discriminator(in_dim=13, h_dim=1000, out_dim=2)
 
     vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
     data_path, _, save_path = get_config_path()
@@ -142,19 +150,23 @@ def visual_2d(set='validation'):
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver(vars)
-        saver.restore(sess, save_path=save_path+'/model')
+        saver.restore(sess, save_path=save_path+'/model_v1_10000')
 
-        mnist = input_data.read_data_sets(data_path, one_hot=True)
-        if set == 'validation':
-            images, labels = mnist.validation.images, mnist.validation.labels
-        elif set == 'train':
-            images, labels = mnist.train.images, mnist.train.labels
+        # mnist = df.create_supervised_data(data_path)
+        # if set == 'validation':
+        #     images, labels = mnist.validation.images, mnist.validation.labels
+        # elif set == 'train':
+        #     images, labels = mnist.train.images, mnist.train.labels
+
+        # for cifar10
+        train, val = df.create_supervised_data(data_path, data, validation=True)
+        images, labels = val.images, val.labels
 
         with tf.name_scope('reconstruction'):
-            input = tf.placeholder(tf.float32, [None,784], 'input')
+            input = tf.placeholder(tf.float32, [None,x_dim], 'input')
             z = encoder.feed_forward(input, is_train=False)
 
-        images = images.reshape([-1, 28*28])
+        images = images.reshape([-1, x_dim])
         all_point = sess.run(z, feed_dict={input:images})
 
         color_list = get_10color_list()
