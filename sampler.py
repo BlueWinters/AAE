@@ -70,7 +70,7 @@ def supervised_gaussian_mixture(batch_size, labels, n_labels=10, n_dim=2):
             z[batch, zi*2:zi*2+2] = sample(x[batch, zi], y[batch, zi], label_indices[batch], n_labels)
     return z
 
-def swiss_roll(batch_size, n_dim, n_labels):
+def swiss_roll(batch_size, n_dim=2, n_labels=10):
     def sample(label, n_labels):
         uni = np.random.uniform(0.0, 1.0) / float(n_labels) + float(label) / float(n_labels)
         r = sqrt(uni) * 3.0
@@ -80,12 +80,13 @@ def swiss_roll(batch_size, n_dim, n_labels):
         return np.array([x, y]).reshape((2,))
 
     z = np.zeros((batch_size, n_dim), dtype=np.float32)
+    dim = int(n_dim/2)
     for batch in range(batch_size):
-        for zi in range(n_dim / 2):
+        for zi in range(dim):
             z[batch, zi*2:zi*2+2] = sample(random.randint(0, n_labels - 1), n_labels)
     return z
 
-def supervised_swiss_roll(batch_size, n_dim, label_indices, n_labels):
+def supervised_swiss_roll(batch_size, labels, n_dim=2, n_labels=10):
     def sample(label, n_labels):
         uni = np.random.uniform(0.0, 1.0) / float(n_labels) + float(label) / float(n_labels)
         r = sqrt(uni) * 3.0
@@ -94,9 +95,13 @@ def supervised_swiss_roll(batch_size, n_dim, label_indices, n_labels):
         y = r * sin(rad)
         return np.array([x, y]).reshape((2,))
 
+    # one-hot --> number code
+    label_indices = np.argmax(labels, axis=1)
+
     z = np.zeros((batch_size, n_dim), dtype=np.float32)
+    dim = int(n_dim/2)
     for batch in range(batch_size):
-        for zi in range(n_dim / 2):
+        for zi in range(dim):
             z[batch, zi*2:zi*2+2] = sample(label_indices[batch], n_labels)
     return z
 

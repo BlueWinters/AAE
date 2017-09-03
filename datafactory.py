@@ -17,19 +17,7 @@ train_batch = ('data_batch_1', 'data_batch_2',
 			   'data_batch_1')
 test_batch = ('test_batch')
 
-def load_mnist_train(path, one_hot=True, reshape=True):
-	images = load_mnist_images(os.path.join(path,train_images))
-	labels = load_mnist_labels(os.path.join(path,train_labels), one_hot)
-	if reshape == True:
-		images = normalize_images(images)
-	return images, labels
-
-def load_mnist_test(path, one_hot=True, reshape=True):
-	images = load_mnist_images(os.path.join(path,test_images))
-	labels = load_mnist_labels(os.path.join(path,test_labels), one_hot)
-	if reshape == True:
-		images = normalize_images(images)
-	return images, labels
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
 def read32(bytestream):
 	dt = np.dtype(np.uint32).newbyteorder('>')
@@ -80,6 +68,20 @@ def load_mnist_labels(file_path, one_hot=True, num_classes=10):
 				return dense_to_one_hot(labels, num_classes)
 			return labels
 
+def load_mnist_train(path, one_hot=True, reshape=True):
+	images = load_mnist_images(os.path.join(path,train_images))
+	labels = load_mnist_labels(os.path.join(path,train_labels), one_hot)
+	if reshape == True:
+		images = normalize_images(images)
+	return images, labels
+
+def load_mnist_test(path, one_hot=True, reshape=True):
+	images = load_mnist_images(os.path.join(path,test_images))
+	labels = load_mnist_labels(os.path.join(path,test_labels), one_hot)
+	if reshape == True:
+		images = normalize_images(images)
+	return images, labels
+
 def load_cifar10_train(path):
 	images = np.empty([50000,3072], dtype=np.float32)
 	labels = np.empty([50000,10], dtype=np.uint8)
@@ -128,19 +130,21 @@ def create_semi_supervised_data(path, data='mnist', num_label=100):
 def create_supervised_data(path, data='mnist', validation=False):
 	if data == 'mnist':
 		images, labels = load_mnist_train(path)
+		n_train_count = 50000
 	elif data == 'cifar10':
 		images, labels = load_cifar10_train(path)
+		n_train_count = 40000
 	else:
 		raise NotImplementedError
 
 	if validation == False:
 		return Dataset(images, labels)
 	else:
-		tr_img = images[:50000]
-		tr_lab = labels[:50000]
-		ts_img = images[50000:]
-		ts_lab = labels[50000:]
-		return Dataset(tr_img,tr_lab), Dataset(ts_img,ts_lab)
+		tr_img = images[:n_train_count]
+		tr_lab = labels[:n_train_count]
+		vl_img = images[n_train_count:]
+		vl_lab = labels[n_train_count:]
+		return Dataset(tr_img,tr_lab), Dataset(vl_img,vl_lab)
 
 class Dataset(object):
 	def __init__(self, images, labels):
