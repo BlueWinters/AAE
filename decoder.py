@@ -10,7 +10,7 @@ class Decoder(object):
         self.name = name
         self.vars = []
 
-        self.type = 'v3'
+        self.type = 'convolution'
 
         self._init_model()
 
@@ -27,6 +27,8 @@ class Decoder(object):
             self._init_model_v2()
         elif self.type == 'v3':
             self._init_model_v3()
+        elif self.type == 'convolution':
+            self._init_model_v4()
 
     def feed_forward(self, input, is_train=True):
         if self.type == 'batch_norm':
@@ -35,6 +37,8 @@ class Decoder(object):
             return self.feed_forward_v2(input, is_train)
         elif self.type == 'v3':
             return self.feed_forward_v3(input, is_train)
+        elif self.type == 'convolution':
+            return self.feed_forward_v4(input, is_train)
 
     def _init_model_v1(self):
         with tf.variable_scope(self.name) as scope:
@@ -117,8 +121,8 @@ class Decoder(object):
                 output = tf.nn.sigmoid(h)
         return output
 
-    def _init_conv_model(self, dim_list):
-        # dim_list = [3, 16, 16, 32]
+    def _init_model_v4(self):
+        dim_list = [2, 16, 16, 3]
         with tf.variable_scope(self.name) as scope:
             with tf.variable_scope('layer1'):
                 ly.set_conv_vars(dim_list[0], 3, 3, dim_list[1])
@@ -131,16 +135,16 @@ class Decoder(object):
         self.scope = scope
         self.vars = tf.get_collection(key=tf.GraphKeys.GLOBAL_VARIABLES, scope=scope.name)
 
-    def conv_feed_forward(self, input, is_train=True):
+    def feed_forward_v4(self, input, is_train=True):
         with tf.variable_scope(self.name, reuse=True):
             with tf.variable_scope('layer1'):
                 h = ly.calc_conv(input)
-                h = ly.calc_bn(h)
+                h = ly.calc_conv_bn(h)
                 h = ly.calc_relu(h)
             with tf.variable_scope('layer2'):
                 h = ly.calc_conv(h)
-                h = ly.calc_bn(h)
+                h = ly.calc_conv_bn(h)
                 h = ly.calc_relu(h)
             with tf.variable_scope('layer3'):
-                output = ly.calc_conv(h)
+                output = ly.calc_deconv(h, input.shape)
         return output

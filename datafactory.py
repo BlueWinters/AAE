@@ -19,6 +19,7 @@ test_batch = ('test_batch')
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
+
 def read32(bytestream):
 	dt = np.dtype(np.uint32).newbyteorder('>')
 	return np.frombuffer(bytestream.read(4), dtype=dt)[0]
@@ -31,10 +32,18 @@ def dense_to_one_hot(labels_dense, num_classes):
 	labels_one_hot.flat[index_offset + labels_dense.ravel()] = 1
 	return labels_one_hot
 
-def normalize_images(data):
-	data = data.reshape(data.shape[0], 28*28)
+def normalize_mnist_images(data):
+	n_samples = data.shape[0]
+	data = data.reshape(n_samples, 28*28)
 	data = data.astype(np.float32)
 	images = np.multiply(data, 1.0/255.0)
+	return images
+
+def to_cifar10_images(data):
+	n_samples = data.shape[0]
+	images = np.reshape(data, [n_samples, 3, 32, 32])
+	images = np.swapaxes(images, 1, 2)
+	images = np.swapaxes(images, 2, 3)
 	return images
 
 def load_mnist_images(file_path):
@@ -68,21 +77,21 @@ def load_mnist_labels(file_path, one_hot=True, num_classes=10):
 				return dense_to_one_hot(labels, num_classes)
 			return labels
 
-def load_mnist_train(path, one_hot=True, reshape=True):
+def load_mnist_train(path, reshape=True, one_hot=True):
 	images = load_mnist_images(os.path.join(path,train_images))
 	labels = load_mnist_labels(os.path.join(path,train_labels), one_hot)
 	if reshape == True:
-		images = normalize_images(images)
+		images = normalize_mnist_images(images)
 	return images, labels
 
-def load_mnist_test(path, one_hot=True, reshape=True):
+def load_mnist_test(path, reshape=True, one_hot=True):
 	images = load_mnist_images(os.path.join(path,test_images))
 	labels = load_mnist_labels(os.path.join(path,test_labels), one_hot)
 	if reshape == True:
-		images = normalize_images(images)
+		images = normalize_mnist_images(images)
 	return images, labels
 
-def load_cifar10_train(path):
+def load_cifar10_train(path, reshape=True, one_hot=True):
 	images = np.empty([50000,3072], dtype=np.float32)
 	labels = np.empty([50000,10], dtype=np.uint8)
 
@@ -94,9 +103,14 @@ def load_cifar10_train(path):
 			dense_labels = np.array(dict[b'labels'])
 			labels[n*10000:(n+1)*10000, :] = dense_to_one_hot(dense_labels, 10)
 
+	if reshape == False:
+		images = to_cifar10_images(images)
+	if one_hot == False:
+		labels = np.argmax(labels, axis=1)
+
 	return images, labels
 
-def load_cifar10_test(path):
+def load_cifar10_test(path, reshape=True, one_hot=True):
 	images = np.empty([10000,3072], dtype=np.float32)
 	labels = np.empty([10000,10], dtype=np.uint8)
 
@@ -107,13 +121,18 @@ def load_cifar10_test(path):
 		dense_labels = np.array(dict[b'labels'])
 		labels[:,:] = dense_to_one_hot(dense_labels, 10)
 
+	if reshape == False:
+		images = to_cifar10_images(images)
+	if one_hot == False:
+		labels = np.argmax(labels, axis=1)
+
 	return images, labels
 
-def create_semi_supervised_data(path, data='mnist', num_label=100):
+def create_semi_supervised_data(path, data='mnist', num_label=100, reshape=False, one_hot=True):
 	if data == 'mnist':
-		images, labels = load_mnist_train(path)
+		images, labels = load_mnist_train(path, reshape, one_hot)
 	elif data == 'cifar10':
-		images, labels = load_cifar10_train(path)
+		images, labels = load_cifar10_train(path, reshape, one_hot)
 	else:
 		raise NotImplementedError
 
@@ -127,12 +146,12 @@ def create_semi_supervised_data(path, data='mnist', num_label=100):
 
 	return Dataset(x_label, y_label), Dataset(x_unlabel, y_unlabel)
 
-def create_supervised_data(path, data='mnist', validation=False):
+def create_supervised_data(path, data='mnist', validation=False, reshape=True, one_hot=True):
 	if data == 'mnist':
-		images, labels = load_mnist_train(path)
+		images, labels = load_mnist_train(path, reshape, one_hot)
 		n_train_count = 50000
 	elif data == 'cifar10':
-		images, labels = load_cifar10_train(path)
+		images, labels = load_cifar10_train(path, reshape, one_hot)
 		n_train_count = 40000
 	else:
 		raise NotImplementedError
@@ -193,6 +212,16 @@ class Dataset(object):
 
 
 if __name__ == '__main__':
-	# mnist_l, mnist_u = create_semi_supervised_data('mnist')
-	load_cifar10_train('cifar10')
+	images, _ = load_cifar10_train('dataset/cifar10', reshape=False)
+
+	import matplotlib.pyplot as plt
+	figure, axs = plt.subplots(10,10)
+	for i in range(10):
+		for j in range(10):
+			axs[i][j].imshow(images[10*i+j,:,:,:])
+			axs[i][j].set_axis_off()
+	plt.ion()
+	plt.show()
+
+
 	t = 1

@@ -76,11 +76,17 @@ def calc_fc(input, name='fc'):
         b = tf.get_variable('b')
         return tf.matmul(input, W) + b
 
-def calc_conv(input, name='conv'):
+def calc_conv(input, padding='SAME', name='conv'):
     with tf.name_scope(name):
-        k = tf.get_variable('filter')
-        b = tf.get_variable('bias')
-        return tf.nn.conv2d(input, k, [1,1,1,1], padding='VALID') + b
+        filter = tf.get_variable('filter')
+        bias = tf.get_variable('bias')
+        return tf.nn.conv2d(input, filter, [1,1,1,1], padding=padding) + bias
+
+def calc_deconv(input, out_shape, padding='SAME', name='deconv'):
+    with tf.name_scope(name):
+        filter = tf.get_variable('filter')
+        bias = tf.get_variable('bias')
+        return tf.nn.conv2d_transpose(input, filter, out_shape, [1,1,1,1], padding=padding) + bias
 
 def calc_conv_bn(input, is_train=True, tiny=1e-6, decay=0.999, name='bn'):
     with tf.name_scope(name):
