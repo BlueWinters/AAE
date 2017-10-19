@@ -50,11 +50,13 @@ def shuffle_data(images, labels):
 	labels = labels[perm]
 	return images, labels
 
-def normalize_mnist_images(data):
-	n_samples = data.shape[0]
-	data = data.reshape(n_samples, 28*28)
+def normalize_mnist_images(data, reshape, norm):
 	data = data.astype(np.float32)
-	images = np.multiply(data, 1.0/255.0)
+	if reshape == True:
+		n_samples = data.shape[0]
+		data = data.reshape(n_samples, 28*28)
+	if norm == True:
+		images = np.multiply(data, 1.0/255.0)
 	return images
 
 def to_cifar10_images(data):
@@ -97,16 +99,14 @@ def load_mnist_labels(file_path, one_hot=True, num_classes=10):
 
 def load_mnist_train(path, reshape=True, norm_flag=True, one_hot=True):
 	images = load_mnist_images(os.path.join(path,train_images))
+	images = normalize_mnist_images(images, reshape, norm_flag)
 	labels = load_mnist_labels(os.path.join(path,train_labels), one_hot)
-	if norm_flag == True:
-		images = normalize_mnist_images(images)
 	return images, labels
 
 def load_mnist_test(path, reshape=True, norm_flag=True, one_hot=True):
 	images = load_mnist_images(os.path.join(path,test_images))
+	images = normalize_mnist_images(images, reshape, norm_flag)
 	labels = load_mnist_labels(os.path.join(path,test_labels), one_hot)
-	if norm_flag == True:
-		images = normalize_mnist_images(images)
 	return images, labels
 
 def load_cifar10_train(path, reshape=True, norm_flag=True, one_hot=True):
