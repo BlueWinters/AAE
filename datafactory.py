@@ -15,7 +15,7 @@ cifar10_url = 'https://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz'
 train_batch = ('data_batch_1', 'data_batch_2',
 			   'data_batch_3', 'data_batch_4',
 			   'data_batch_1')
-test_batch = ('test_batch')
+test_batch = ('test_batch',)
 
 svhn_url = 'http://ufldl.stanford.edu/housenumbers/'
 full_number_train = 'train.tar.gz'
@@ -136,7 +136,7 @@ def load_cifar10_test(path, reshape=True, norm_flag=True, one_hot=True):
 
 	with open(path+'/'+test_batch[0], 'rb') as file:
 		dict = pk.load(file, encoding='bytes')
-		images[:,:] = np.multiply(dict[b'data'], 1.0/255.0)
+		images[:,:] = dict[b'data']
 		# Labels: list-->array
 		dense_labels = np.array(dict[b'labels'])
 		labels[:,:] = dense_to_one_hot(dense_labels, 10)
