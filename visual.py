@@ -6,183 +6,77 @@ import datafactory as df
 from encoder import Encoder
 from decoder import Decoder
 from discriminator import Discriminator
-
+from tools import get_meshgrid
 import matplotlib.pyplot as plt
-from matplotlib import gridspec
-from scipy.stats import norm
-from tensorflow.examples.tutorials.mnist import input_data
+import scipy.misc as misc
 
 
 
-data = 'cifar10'
-input_dim = 3072
-prior = 'mix-gaussian'
+def generate_image_grid(save_path, x_dim):
+    encoder = Encoder(in_dim=x_dim, h_dim=1024, out_dim=2)
+    decoder = Decoder(in_dim=2, h_dim=1024, out_dim=x_dim)
+    discriminator = Discriminator(in_dim=2, h_dim=1024, out_dim=2)
 
-
-def get_config_path():
-    data_path = 'dataset/{}'.format(data)
-    summary_path = 'semi-supervised/{}/{}'.format(data,prior)
-    save_path = 'semi-supervised/{}/{}'.format(data,prior)
-    return data_path, summary_path, save_path
-
-def generate_image_grid():
-    encoder = Encoder()
-    decoder = Decoder(in_dim=13)
-    discriminator = Discriminator()
-
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    data_path, _, save_path = get_config_path()
+    all_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    vars = [var for var in all_vars if 'Decoder' in var.name]
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver(vars)
-        saver.restore(sess, save_path=save_path+'/model_v0')
+        saver.restore(sess, save_path='{}\model'.format(save_path))
 
         with tf.name_scope('latent_space'):
             z_holder = tf.placeholder(dtype=tf.float32, shape=[None,2], name='z_holder')
             image = decoder.feed_forward(z_holder, is_train=False)
 
-        x_points = np.arange(-1, 1, 0.1).astype(np.float32)
-        y_points = np.arange(-1, 1, 0.1).astype(np.float32)
-        nx, ny = len(x_points), len(y_points)
+        nx, ny = 21, 21
+        size, chl = 28, 1
+        z_sample = get_meshgrid(z_range=1, nx=nx, ny=ny)
+        images = sess.run(image, feed_dict={z_holder: z_sample})
 
-        plt.subplot()
-        gs = gridspec.GridSpec(nx, ny, hspace=0.05, wspace=0.05)
-        for i, g in enumerate(gs):
-            z = np.concatenate(([x_points[int(i / ny)]], [y_points[int(i % nx)]]))
-            z = np.reshape(z, (1, 2))
-            x = sess.run(image, feed_dict={z_holder:z})
-            ax = plt.subplot(g)
-            img = np.array(x.tolist()).reshape(28, 28)
-            ax.imshow(img, cmap='gray')
-            ax.set_xticks([])
-            ax.set_yticks([])
-            ax.set_aspect('auto')
-        plt.show()
 
-def explore_latent():
-    nx, ny = 30, 30
-    space_min, space_max = -40, 40
-    tiny = 1e-8
-    z = np.rollaxis(np.mgrid[space_max:space_min:ny*1j, space_min:space_max:nx*1j], 0, 3)
-    z = np.array([norm.ppf(np.clip(one, tiny, 1 - tiny)) for one in z])
-    z = np.reshape(z, [-1,2])
-
-    encoder = Encoder()
-    decoder = Decoder()
-    discriminator = Discriminator(out_dim=4)
-
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    data_path, _, save_path = get_config_path()
-
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        saver = tf.train.Saver(vars)
-        saver.restore(sess, save_path=save_path)
-
-        with tf.name_scope('latent_space'):
-            z_holder = tf.placeholder(dtype=tf.float32, shape=[None,2], name='z_holder')
-            image_holder = decoder.feed_forward(z_holder, is_train=False)
-        image = sess.run(image_holder, feed_dict={z_holder:z})
-        image = np.reshape(image, [ny,nx,-1])
-
-        stack_image = np.zeros([ny*28,nx*28])
+        stack_images = np.zeros([ny * size, nx * size])
         for j in range(ny):
             for i in range(nx):
-                stack_image[j*28:(j+1)*28, i*28:(i+1)*28] = np.reshape(image[j,i,:], [28,28])
+                stack_images[j * size:(j + 1) * size, i * size:(i + 1) * size] = \
+                    np.reshape(images[j * ny + i, :], [size, size])
+        misc.imsave('{}/mainfold.png'.format(save_path), stack_images)
 
-        plt.imshow(stack_image, cmap='gray')
-        plt.show()
-        plt.savefig(save_path+'/manifold.png')
+def visual_2d(save_path, x_dim):
+    y_dim = 10
+    z_dim = 2
 
-def generate_reconstruct_image():
-    encoder = Encoder()
-    decoder = Decoder()
-    discriminator = Discriminator()
-
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    data_path, _, save_path = get_config_path()
-
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
-        saver = tf.train.Saver(vars)
-        saver.restore(sess, save_path=save_path)
-
-        mnist = input_data.read_data_sets(data_path, one_hot=True)
-        x, _ = mnist.validation.next_batch(100)
-
-        with tf.name_scope('reconstruction'):
-            input = tf.placeholder(tf.float32, [100,784], 'input')
-            z = encoder.feed_forward(input, is_train=False)
-            output = decoder.feed_forward(z, is_train=False)
-
-        x = x.reshape([100, 28*28])
-        y = sess.run(output, feed_dict={input:x})
-
-        figure, ax = plt.subplots(10, 10)
-        for i in range(5):
-            for j in range(10):
-                ax[i][j].imshow(np.reshape(x[i*10+j,:], (28, 28)), cmap ='gray')
-                ax[i][j].set_axis_off()
-        for i in range(5):
-            for j in range(10):
-                ax[5+i][j].imshow(np.reshape(y[i*10+j,:], (28, 28)), cmap ='gray')
-                ax[5+i][j].set_axis_off()
-        plt.show()
-
-def visual_2d(set='validation'):
-    def get_10color_list():
-        color = [[0.0, 0.0, 0.0], [0.0, 0.0, 1.0],
-                 [0.0, 1.0, 0.0], [0.0, 1.0, 1.0],
-                 [1.0, 0.0, 0.0], [1.0, 0.0, 1.0],
-                 [1.0, 1.0, 0.0], [1.0, 1.0, 0.5], # [1,1,1] --> white
-                 [0.5, 1.0, 0.5], [1.0, 0.5, 1.0]] # last three are chosen randomly
-        return color
-    #
-    x_dim = 3072
-    encoder = Encoder(in_dim=x_dim, h_dim=1000, out_dim=2)
+    encoder = Encoder(in_dim=x_dim, h_dim=1024, out_dim=2)
     decoder = Decoder(in_dim=2, h_dim=1000, out_dim=x_dim)
-    discriminator = Discriminator(in_dim=13, h_dim=1000, out_dim=2)
+    discriminator = Discriminator(in_dim=z_dim, h_dim=1024, out_dim=2)
 
-    vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
-    data_path, _, save_path = get_config_path()
+    all_vars = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)
+    vars = [var for var in all_vars if 'Encoder' in var.name]
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver(vars)
-        saver.restore(sess, save_path=save_path+'/model_v1_10000')
+        saver.restore(sess, save_path='{}\model'.format(save_path))
 
-        # mnist = df.create_supervised_data(data_path)
-        # if set == 'validation':
-        #     images, labels = mnist.validation.images, mnist.validation.labels
-        # elif set == 'train':
-        #     images, labels = mnist.train.images, mnist.train.labels
-
-        # for cifar10
-        train, val = df.create_supervised_data(data_path, data, validation=True)
-        images, labels = val.images, val.labels
+        images, labels = df.load_mnist_train('E:/dataset/mnist')
 
         with tf.name_scope('reconstruction'):
-            input = tf.placeholder(tf.float32, [None,x_dim], 'input')
+            input = tf.placeholder(dtype=tf.float32, shape=[None, x_dim], name='input')
             z = encoder.feed_forward(input, is_train=False)
 
-        images = images.reshape([-1, x_dim])
         all_point = sess.run(z, feed_dict={input:images})
 
-        color_list = get_10color_list()
-        for n in range(10):
+        color_list = plt.get_cmap('hsv', y_dim+1)
+        for n in range(y_dim):
             index = np.where(labels[:,n] == 1)[0]
             point = all_point[index.tolist(),:]
             x = point[:,0]
             y = point[:,1]
-            plt.scatter(x, y, color=color_list[n], edgecolors='face')
+            plt.scatter(x, y, color=color_list(n), edgecolors='face')
         plt.show()
         # plt.savefig(save_path+'/visual2d.png')
 
 if __name__ == '__main__':
-    # generate_image_grid()
-    # generate_reconstruct_image()
-    # visual_2d('train')
-    visual_2d()
-    # explore_latent()
+    # generate_image_grid('save/unsupervised/mnist/gaussian', 784)
+    # visual_2d('save/unsupervised/mnist/gaussian')
     pass

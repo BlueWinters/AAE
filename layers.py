@@ -12,6 +12,35 @@ def full_connect(input, in_dim, out_dim, name='fc'):
         a = tf.matmul(input, W) + b
     return a
 
+def conv_2d(input, k_h, k_w, out_chl, padding='SAME', name='conv2d'):
+    with tf.name_scope(name) as scope:
+        in_chl = input.get_shape().as_list()[-1]
+        k = tf.get_variable(name='filter', shape=[k_h, k_w, in_chl, out_chl], dtype=tf.float32,
+                            initializer=tf.random_normal_initializer(stddev=0.1))
+        b = tf.get_variable(name='bias', shape=[out_chl], dtype=tf.float32,
+                            initializer=tf.constant_initializer(0.1))
+        return tf.nn.conv2d(input, k, [1,1,1,1], padding=padding) + b
+
+def deconv_2d(input, k_h, k_w, out_chl, padding='SAME', name='deconv2d'):
+    with tf.name_scope(name) as scope:
+        in_shape = input.get_shape().as_list()
+        out_shape = tf.stack([in_shape[0], in_shape[1], in_shape[2], out_chl])
+        k = tf.get_variable(name='filter', shape=[k_h, k_w, out_chl, in_shape[-1]], dtype=tf.float32,
+                            initializer=tf.random_normal_initializer(stddev=0.1))
+        b = tf.get_variable(name='bias', shape=[out_chl], dtype=tf.float32,
+                            initializer=tf.constant_initializer(0.1))
+        return tf.nn.conv2d_transpose(input, k, out_shape, [1,1,1,1], padding=padding) + b
+
+def upsample_2d(input, k_h, k_w, padding='VALID', name='upsample_2d'):
+    with tf.name_scope(name) as scope:
+        in_shape = input.get_shape().as_list()
+        out_chl = in_shape[-1]
+        np_filter = np.zeros([k_h, k_w, in_shape[-1], out_chl])
+        np_filter[0, 0, :, :] = np.eye(out_chl, out_chl)
+        tf_filter = tf.constant(np_filter, dtype=tf.float32) # constant
+        out_shape = tf.stack([in_shape[0], in_shape[1]*k_h, in_shape[2]*k_h, out_chl])
+        return tf.nn.conv2d_transpose(input, tf_filter, out_shape, [1,k_h,k_w,1], padding=padding)
+
 def batch_normalize(input, is_train=True, tiny=1e-6, decay=0.999, name='bn'):
     shape = input.get_shape().as_list()
     with tf.name_scope(name) as scope:
@@ -33,10 +62,6 @@ def batch_normalize(input, is_train=True, tiny=1e-6, decay=0.999, name='bn'):
             a = scale*(input-non_mean) / tf.sqrt(tiny+non_var) + beta
     return a
 
-def active_relu(input, name='relu'):
-    with tf.name_scope(name) as scope:
-        return tf.nn.relu(input)
-
 ######################################################################################
 def set_fc_vars(in_dim, out_dim, stddev=1.):
     W = tf.get_variable(name='W', shape=[in_dim, out_dim], dtype=tf.float32,
@@ -44,10 +69,16 @@ def set_fc_vars(in_dim, out_dim, stddev=1.):
     b = tf.get_variable(name='b', shape=[out_dim], dtype=tf.float32,
                         initializer=tf.constant_initializer(0))
 
-def set_conv_vars(in_dim, k_h, k_w, out_dim, stddev=1.):
-    k = tf.get_variable(name='filter', shape=[k_h, k_w, in_dim, out_dim], dtype=tf.float32,
+def set_conv_vars(in_chl, k_h, k_w, out_chl, stddev=1.):
+    k = tf.get_variable(name='filter', shape=[k_h, k_w, in_chl, out_chl], dtype=tf.float32,
                         initializer=tf.random_normal_initializer(stddev=1.0))
-    b = tf.get_variable(name='bias', shape=[out_dim], dtype=tf.float32,
+    b = tf.get_variable(name='bias', shape=[out_chl], dtype=tf.float32,
+                        initializer=tf.constant_initializer(0))
+
+def set_deconv_vars(in_chl, k_h, k_w, out_chl, stddev=1.):
+    k = tf.get_variable(name='filter', shape=[k_h, k_w, out_chl, in_chl], dtype=tf.float32,
+                        initializer=tf.random_normal_initializer(stddev=1.0))
+    b = tf.get_variable(name='bias', shape=[out_chl], dtype=tf.float32,
                         initializer=tf.constant_initializer(0))
 
 def set_bn_vars(shape):
@@ -112,7 +143,7 @@ def calc_sigmoid(input, name='sigmoid'):
     with tf.name_scope(name):
         return tf.nn.sigmoid(input)
 
-def calc_bn(input, is_train=True, tiny=1e-6, decay=0.999, name='bn'):
+def calc_bn(input, is_train=True, tiny=1e-6, decay=0.9, name='bn'):
     with tf.name_scope(name):
         scale = tf.get_variable('scale')
         beta = tf.get_variable('beta')
