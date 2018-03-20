@@ -78,5 +78,5 @@ def visual_2d(save_path, x_dim):
 
 if __name__ == '__main__':
     # generate_image_grid('save/unsupervised/mnist/gaussian', 784)
-    # visual_2d('save/unsupervised/mnist/gaussian')
+    visual_2d('save/supervised/mnist/mix-gaussian', 784)
     pass
