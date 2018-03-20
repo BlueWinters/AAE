@@ -5,10 +5,10 @@
 - Manifold的结果能够看出来，unsupervised看上去不是特别好（和本文件夹中的manifold.png相比，这个是以训练的结果）
 - 整体代码有较大改动，原因是原来的代码太乱的，在历史tag中有训练结果较好的版本
 
-## Manifold for supervised learning
+## Manifold for unsupervised learning
 ![unsupervised](https://github.com/BlueWinters/AdversarialAutoencoder/blob/master/save/unsupervised/mnist/gaussian/10.jpg)
 
-## Manifold for unsupervised learning
+## Manifold for supervised learning
 ![unsupervised](https://github.com/BlueWinters/AdversarialAutoencoder/blob/master/save/supervised/mnist/mix-gaussian/10.jpg)
 
 ## Reference
